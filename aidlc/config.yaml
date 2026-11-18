@@ -1,0 +1,28 @@
+# RA AIDLC project configuration. Keys and values are the machine contract (English, ADR 0007).
+version: 1
+# Language of human-facing artifacts and of the conversation: en | pt-BR
+language: pt-BR
+# Set by `ra-aidlc init`: greenfield | brownfield
+project_type: greenfield
+# Hosts this project was set up for: generic | copilot | claude
+hosts: [claude]
+# Default scope when the person does not name one: express | feature
+default_scope: feature
+# Free tags that let lessons and rules apply across teams (ADR 0011), e.g. [chapter:frontend]
+tags: []
+gate:
+  # When true, an FR depending on a draft or disputed business rule fails the gate instead of warning.
+  strict: false
+knowledge:
+  # Map of who knows what. Off by default; turning it on needs a recorded decision with leadership (ADR 0011).
+  experts: false
+construction:
+  test:
+    # Command the 3.2 gate runs; it must write a JUnit XML report. A list runs as is; text runs in
+    # a shell (cmd on Windows, sh elsewhere). Empty means the tests-pass check does not run.
+    # Examples: [bun, test, --reporter=junit, --reporter-outfile=.aidlc-junit.xml] | pytest --junitxml=.aidlc-junit.xml
+    command: ""
+    # Path of the JUnit XML report, relative to the project root.
+    report: ""
+    # Minutes before the command is stopped (fractions allowed).
+    timeout_minutes: 10

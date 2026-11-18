@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ra-aidlc:*)",
+      "PowerShell(ra-aidlc:*)",
+      "Bash(git log:*)",
+      "PowerShell(git log:*)",
+      "Bash(git rev-parse:*)",
+      "PowerShell(git rev-parse:*)"
+    ]
+  }
+}

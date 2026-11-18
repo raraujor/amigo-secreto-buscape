@@ -1,0 +1,41 @@
+# Workflow state of one intent. Written by the CLI; agents read it, never edit it.
+version: 1
+intent: 261116-sorteio-amigo-secreto-familia
+scope: feature
+created: 2026-11-16T22:35:30.675Z
+stages:
+  "2.1":
+    status: skipped
+    skip_reason: greenfield project
+  "1.1":
+    status: approved
+    started: 2026-11-16T22:35:32.855Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-16T22:45:59.470Z
+  "2.3":
+    status: approved
+    started: 2026-11-16T23:07:08.575Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-16T23:13:12.147Z
+  "2.4":
+    status: approved
+    started: 2026-11-16T23:13:14.461Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-16T23:17:07.767Z
+  "2.7":
+    status: approved
+    started: 2026-11-16T23:17:11.170Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-16T23:24:38.122Z
+units:
+  unit/001-fatia-base:
+    stages:
+      "3.1":
+        status: approved
+        started: 2026-11-16T23:25:54.332Z
+        plan_hash: 73eec61665c0f4e8e310febf6ce83442ce4448b75e85e7df55dff182196cfadc
+        approved_by: Rodrigo
+        approved_at: 2026-11-16T23:37:31.405Z
+      "3.2":
+        status: in-progress
+        started: 2026-11-16T23:37:33.855Z
