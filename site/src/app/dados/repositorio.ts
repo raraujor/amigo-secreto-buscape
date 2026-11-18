@@ -10,6 +10,7 @@ import {
   getDocs,
   Timestamp,
   serverTimestamp,
+  setDoc,
   writeBatch,
 } from "firebase/firestore";
 import type { LinhaParticipante } from "../../../../comum/csv";
@@ -103,4 +104,24 @@ export async function lerSorteioAtual(db: Firestore): Promise<{ id: string; cria
   if (!sorteio.exists()) return null;
   const { id, criadoEm } = sorteio.data() as { id: string; criadoEm: Timestamp };
   return { id, criadoEm: criadoEm.toDate() };
+}
+
+export interface Encontro {
+  data: string;
+  local: string;
+  valor: string;
+}
+
+/** Lê os dados do encontro (data, local e valor sugerido); null se ainda não foram informados. */
+export async function lerEncontro(db: Firestore): Promise<Encontro | null> {
+  const dados = await getDoc(doc(db, "config", "encontro"));
+  if (!dados.exists()) return null;
+  const { data, local, valor } = dados.data() as Encontro;
+  return { data, local, valor };
+}
+
+/** Grava os dados do encontro, que valem para todos os participantes. */
+export async function gravarEncontro(db: Firestore, encontro: Encontro): Promise<void> {
+  const { data, local, valor } = encontro;
+  await setDoc(doc(db, "config", "encontro"), { data, local, valor });
 }

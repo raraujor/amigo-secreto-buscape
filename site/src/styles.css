@@ -28,3 +28,5 @@ app-entrar h1 { color: #14532d; margin-bottom: 1rem; }
 app-entrar label { display: block; margin-bottom: .5rem; }
 
 td.visto { color: #14532d; font-weight: 600; }
+.visto-msg { color: #14532d; font-weight: 600; margin: .5rem 0 0; }
+label { display: block; }

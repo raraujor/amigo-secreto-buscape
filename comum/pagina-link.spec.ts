@@ -5,10 +5,10 @@ const linkDeAna = { participante: "Ana", amigo: "Bruno" };
 
 it("US9 FR-007 mostra o amigo só depois de Ver quem eu tirei", () => {
   const fechado = estadoDaPaginaDoLink(linkDeAna, false);
-  expect(fechado).toEqual({ tipo: "fechado", titulo: "Link de Ana", botao: "Ver quem eu tirei" });
+  expect(fechado).toEqual({ tipo: "fechado", titulo: "Ana, você saiu com...", botao: "Ver quem eu tirei" });
   expect(JSON.stringify(fechado)).not.toContain("Bruno");
 
-  expect(estadoDaPaginaDoLink(linkDeAna, true)).toEqual({ tipo: "aberto", texto: "Ana, você tirou: Bruno" });
+  expect(estadoDaPaginaDoLink(linkDeAna, true)).toEqual({ tipo: "aberto", texto: "Ana, você saiu com: Bruno" });
 });
 
 it("US9 FR-007 identificador inexistente mostra link inválido sem nome", () => {

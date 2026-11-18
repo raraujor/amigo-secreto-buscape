@@ -12,6 +12,6 @@ export function estadoDaPaginaDoLink(
   revelado: boolean,
 ): EstadoDaPaginaDoLink {
   if (link === null) return { tipo: "invalido", texto: "Link inválido, fale com o organizador." };
-  if (!revelado) return { tipo: "fechado", titulo: `Link de ${link.participante}`, botao: "Ver quem eu tirei" };
-  return { tipo: "aberto", texto: `${link.participante}, você tirou: ${link.amigo}` };
+  if (!revelado) return { tipo: "fechado", titulo: `${link.participante}, você saiu com...`, botao: "Ver quem eu tirei" };
+  return { tipo: "aberto", texto: `${link.participante}, você saiu com: ${link.amigo}` };
 }

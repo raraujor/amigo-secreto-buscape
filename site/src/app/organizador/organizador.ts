@@ -3,10 +3,14 @@ import { Router } from "@angular/router";
 import { signOut } from "firebase/auth";
 import { lerCsv } from "../../../../comum/csv";
 import { formatarDataHora } from "../../../../comum/data";
+import { FormsModule } from "@angular/forms";
 import {
+  type Encontro,
   type Participante,
+  gravarEncontro,
   gravarSorteio,
   importarParticipantes,
+  lerEncontro,
   lerLinks,
   lerParticipantes,
   lerSorteioAtual,
@@ -22,11 +26,22 @@ interface LinkDaTela {
 
 @Component({
   selector: "app-organizador",
+  imports: [FormsModule],
   template: `
     <header class="topo">
       <h1>🎄 Amigo secreto</h1>
       <button type="button" class="discreto" (click)="sair()">Sair</button>
     </header>
+
+    <section class="cartao">
+      <h2>Dados do encontro</h2>
+      <p class="dica">Aparecem na página de cada participante depois que ele descobre o amigo secreto.</p>
+      <label>Data <input type="text" name="data" [(ngModel)]="encontro.data" /></label>
+      <label>Local <input type="text" name="local" [(ngModel)]="encontro.local" /></label>
+      <label>Valor sugerido <input type="text" name="valor" [(ngModel)]="encontro.valor" /></label>
+      <button type="button" (click)="salvarEncontro()">Salvar dados do encontro</button>
+      @if (encontroSalvo()) { <p class="visto-msg">✓ Salvo. Já aparece nos links.</p> }
+    </section>
 
     <section class="cartao">
       <h2>1. Importar a lista</h2>
@@ -72,6 +87,9 @@ export class Organizador implements OnInit {
   readonly participantes = signal<Participante[]>([]);
   readonly links = signal<LinkDaTela[]>([]);
   readonly sorteadoEm = signal("");
+  /** Valores sugeridos até o organizador salvar os dados reais. */
+  encontro: Encontro = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
+  readonly encontroSalvo = signal(false);
   readonly erro = signal("");
   readonly copiado = signal("");
   private readonly base = `${location.origin}${location.pathname}#/l/`;
@@ -81,6 +99,16 @@ export class Organizador implements OnInit {
   async ngOnInit(): Promise<void> {
     this.participantes.set(await lerParticipantes(db));
     await this.carregarLinks();
+    const salvo = await lerEncontro(db);
+    if (salvo) {
+      this.encontro = salvo;
+      this.encontroSalvo.set(true);
+    }
+  }
+
+  async salvarEncontro(): Promise<void> {
+    await gravarEncontro(db, this.encontro);
+    this.encontroSalvo.set(true);
   }
 
   /** Lê do banco os links do último sorteio, na ordem da planilha. */

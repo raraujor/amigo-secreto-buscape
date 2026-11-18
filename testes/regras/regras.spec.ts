@@ -17,7 +17,14 @@ import {
 } from "firebase/firestore";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { lerCsv } from "../../comum/csv";
-import { gravarSorteio, importarParticipantes, lerLinks, lerSorteioAtual } from "../../site/src/app/dados/repositorio";
+import {
+  gravarEncontro,
+  gravarSorteio,
+  importarParticipantes,
+  lerEncontro,
+  lerLinks,
+  lerSorteioAtual,
+} from "../../site/src/app/dados/repositorio";
 
 const PROJETO = "demo-amigo-secreto";
 const ORGANIZADOR = /return '([^']+)';/.exec(readFileSync("firestore.rules", "utf8"))?.[1] ?? "";
@@ -235,4 +242,13 @@ it("US4 FR-004 lerLinks mostra quem já tocou em Ver quem eu tirei e quando", as
   const abertos = depois.filter((l) => l.abertoEm !== null);
   expect(abertos.map((l) => l.participanteId)).toEqual([primeiro.participanteId]);
   expect(abertos[0].abertoEm).toBeInstanceOf(Date);
+});
+
+it("US3 FR-003 o organizador grava os dados do encontro e o visitante os lê, mesmo sem login", async () => {
+  expect(await lerEncontro(org)).toBeNull();
+  const dados = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
+  await gravarEncontro(org, dados);
+  expect(await lerEncontro(org)).toEqual(dados);
+  expect(await lerEncontro(visitante)).toEqual(dados);
+  await negado(gravarEncontro(visitante, { ...dados, local: "Outro lugar" }));
 });
