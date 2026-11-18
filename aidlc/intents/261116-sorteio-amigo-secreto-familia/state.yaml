@@ -51,6 +51,6 @@ units:
         approved_by: Rodrigo
         approved_at: 2026-11-18T01:25:21.651Z
       "3.2":
-        status: in-progress
+        status: awaiting-approval
         commit_base: 009a0536ccb195353a586dab8065947397a72dfe
         started: 2026-11-18T01:25:23.887Z

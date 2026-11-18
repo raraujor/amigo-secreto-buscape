@@ -28,4 +28,4 @@
 - [x] T015 [US4] FR-004 Confirmação forte para recomeçar: só a palavra RECOMEÇAR liga o botão (`confirmouRecomecar`) — teste: comum/confirmacao.spec.ts::US4 FR-004 só a palavra RECOMEÇAR, em qualquer caixa e com espaços nas pontas, confirma recomeçar do zero
 ### Fase 3: Tela do organizador
 
-- [ ] T016 [US2] [US4] [US5] FR-001 FR-004 FR-006 Tela do organizador, fina: erros e avisos da planilha, confirmação antes de sortear de novo, mensagens das recusas, o resultado completo atrás do botão e a seção Recomeçar do zero, conferidos à mão em `testes/manual/preparacao-002.md` — teste: testes/repo/repositorio.spec.ts::US2 US4 US5 FR-001 FR-004 FR-006 verificação manual registrada com todas as marcas ok e sem nomes nem links
+- [x] T016 [US2] [US4] [US5] FR-001 FR-004 FR-006 Tela do organizador, fina: erros e avisos da planilha, confirmação antes de sortear de novo, mensagens das recusas, o resultado completo atrás do botão e a seção Recomeçar do zero, conferidos à mão em `testes/manual/preparacao-002.md` — teste: testes/repo/repositorio.spec.ts::US2 US4 US5 FR-001 FR-004 FR-006 verificação manual registrada com todas as marcas ok e sem nomes nem links
