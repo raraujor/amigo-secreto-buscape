@@ -1,11 +1,28 @@
-:root { font-family: system-ui, sans-serif; color: #1f2937; }
-body { margin: 0; background: #f8fafc; }
-main { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem; }
-h1 { font-size: 1.5rem; }
-button { font: inherit; padding: 0.6rem 1rem; border-radius: 0.5rem; border: 0; background: #b91c1c; color: #fff; cursor: pointer; }
-button:disabled { opacity: 0.5; cursor: default; }
-input { font: inherit; padding: 0.5rem; width: 100%; box-sizing: border-box; margin: 0.25rem 0 0.75rem; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #e5e7eb; }
+:root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f2937; }
+body { margin: 0; background: #f4efe4; }
+main { display: block; }
+app-organizador { display: block; max-width: 42rem; margin: 0 auto; }
+h1 { font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; margin: 0; }
+h2 { font-size: 1.1rem; margin: 0 0 .5rem; color: #14532d; }
+
+/* Área do organizador */
+.topo { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem;
+  background: linear-gradient(#14532d, #0f3d2c); color: #fff; border-bottom: 4px solid #b91c1c; }
+.cartao { background: #fffdf7; margin: 1rem; padding: 1rem 1.25rem; border-radius: .9rem;
+  border: 1px solid #e5dcc3; box-shadow: 0 .2rem .6rem rgba(0,0,0,.06); }
+.dica { color: #6b7280; font-size: .9rem; margin: 0 0 .5rem; }
 .erro { color: #b91c1c; }
-.destaque { font-size: 1.4rem; font-weight: 600; margin: 1rem 0; }
+button { font: inherit; padding: .65rem 1.1rem; border-radius: .6rem; border: 0; background: #b91c1c;
+  color: #fff; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button.discreto { background: transparent; color: inherit; border: 1px solid currentColor; padding: .35rem .8rem; }
+.cartao button.discreto { color: #14532d; }
+input { font: inherit; padding: .55rem; width: 100%; box-sizing: border-box; margin: .25rem 0 .75rem;
+  border: 1px solid #d6cdb5; border-radius: .5rem; background: #fff; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #eee6d0; }
+
+/* Entrar */
+app-entrar { display: block; padding: 2rem 1.25rem; }
+app-entrar h1 { color: #14532d; margin-bottom: 1rem; }
+app-entrar label { display: block; margin-bottom: .5rem; }

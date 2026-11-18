@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { lerCsv } from "../../comum/csv";
-import { gravarSorteio, importarParticipantes } from "../../site/src/app/dados/repositorio";
+import { gravarSorteio, importarParticipantes, lerLinks } from "../../site/src/app/dados/repositorio";
 
 const PROJETO = "demo-amigo-secreto";
 const ORGANIZADOR = /return '([^']+)';/.exec(readFileSync("firestore.rules", "utf8"))?.[1] ?? "";
@@ -201,4 +201,14 @@ it("US4 FR-004 sortear grava sorteio e 37 links e apaga os antigos de uma vez", 
     id: segundo.sorteioId,
     enviosIniciados: false,
   });
+});
+
+it("US4 FR-004 lerLinks devolve o token e o nome de cada participante depois do sorteio, para os links não sumirem ao recarregar", async () => {
+  await importarParticipantes(org, fixture);
+  const { tokens } = await gravarSorteio(org);
+  const links = await lerLinks(org);
+  expect(links).toHaveLength(37);
+  for (const link of links) expect(tokens.get(link.participanteId)).toBe(link.token);
+  expect(new Set(links.map((l) => l.participante)).size).toBe(37);
+  expect(JSON.stringify(links)).not.toContain("amigo");
 });

@@ -77,3 +77,17 @@ export async function lerLink(
   const { participante, amigo } = link.data() as { participante: string; amigo: string };
   return { participante, amigo };
 }
+
+/**
+ * Lê os links já gerados (token e nome de quem recebe), sem o nome do amigo, para a área do
+ * organizador mostrá-los de novo depois de recarregar a página.
+ */
+export async function lerLinks(
+  db: Firestore,
+): Promise<{ token: string; participanteId: string; participante: string }[]> {
+  const todos = await getDocs(collection(db, "links"));
+  return todos.docs.map((d) => {
+    const { participanteId, participante } = d.data() as { participanteId: string; participante: string };
+    return { token: d.id, participanteId, participante };
+  });
+}
