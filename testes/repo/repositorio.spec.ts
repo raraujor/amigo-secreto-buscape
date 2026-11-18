@@ -98,3 +98,10 @@ it("US6 US7 US8 FR-008 FR-009 FR-010 verificação manual registrada com todas a
   expect(marcas.every((m) => m === "- [x]")).toBe(true);
   expect(texto).not.toMatch(/https?:\/\//);
 });
+
+it("o site pede aos buscadores para não indexar nenhuma página, mas mantém a prévia do link no WhatsApp", () => {
+  const html = readFileSync("site/src/index.html", "utf8");
+  expect(html).toMatch(/<meta name="robots" content="noindex, nofollow">/);
+  expect(html).toContain('property="og:image"');
+  expect(html).toContain('property="og:title"');
+});
