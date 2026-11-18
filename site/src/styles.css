@@ -37,3 +37,6 @@ ul.erro, ul.aviso { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
 .cartao.perigo { border: 2px solid #b91c1c; background: #fff5f5; }
 .cartao.perigo h2 { color: #b91c1c; }
 button.perigo-botao { background: #7f1d1d; }
+.estado { font-size: .85rem; color: #6b7280; margin-top: .15rem; }
+td.acoes { text-align: right; white-space: normal; }
+td.acoes > * { margin: 0 0 .35rem .35rem; }

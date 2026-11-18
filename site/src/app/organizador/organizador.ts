@@ -103,13 +103,19 @@ interface LinkDaTela {
         <table>
           @for (l of links(); track l.url) {
             <tr>
-              <td>{{ l.nome }}</td>
-              <td [class.visto]="l.vistoEm">{{ l.vistoEm ? "✓ Já viu em " + l.vistoEm : "Ainda não viu" }}</td>
-              <td [class.visto]="l.status === 'enviada'" [class.aviso]="l.status === 'falha'">{{ l.rotulo }}</td>
               <td>
-                <a class="whats" [href]="l.whatsapp" target="_blank" rel="noopener">💬 Enviar pelo WhatsApp</a>
-                <button type="button" class="discreto" (click)="alternarEnvio(l)">
-                  {{ l.status === "enviada" ? "Desfazer" : "Marcar como enviada" }}</button>
+                <strong>{{ l.nome }}</strong>
+                <div class="estado">
+                  <span [class.visto]="l.status === 'enviada'" [class.aviso]="l.status === 'falha'">{{ l.rotulo }}</span>
+                  <span [class.visto]="l.vistoEm"> · {{ l.vistoEm ? "já viu em " + l.vistoEm : "ainda não viu" }}</span>
+                </div>
+              </td>
+              <td class="acoes">
+                <a class="whats" [href]="l.whatsapp" target="_blank" rel="noopener" (click)="enviarPeloWhatsApp(l)">
+                  💬 {{ l.status === "enviada" ? "Enviar de novo" : "Enviar pelo WhatsApp" }}</a>
+                @if (l.status === "enviada") {
+                  <button type="button" class="discreto" (click)="desfazer(l)">Desfazer</button>
+                }
                 <button type="button" class="discreto" (click)="copiar(l.url)">
                   {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button>
               </td>
@@ -295,18 +301,31 @@ export class Organizador implements OnInit {
     return `Links do sorteio (${this.links().length}) - ${this.sorteadoEm()}${resumo ? ` - ${resumo}` : ""}`;
   }
 
-  /** Marca a mensagem como enviada ou desfaz; desfazer a única enviada pede confirmação. */
-  async alternarEnvio(l: LinkDaTela): Promise<void> {
+  /**
+   * O toque em "Enviar pelo WhatsApp" abre a conversa (o link segue o caminho normal) e já marca
+   * a mensagem como enviada. Quem tocou e não enviou pode usar "Desfazer".
+   */
+  async enviarPeloWhatsApp(l: LinkDaTela): Promise<void> {
+    if (l.status === "enviada") return;
     this.erro.set("");
     try {
-      if (l.status === "enviada") {
-        const ultima = this.enviadas() === 1;
-        if (ultima && !confirm("Esta é a única mensagem enviada. Desfazer solta a trava e deixa sortear e importar de novo. Continuar?"))
-          return;
-        await desfazerEnvio(db, l.participanteId);
-      } else {
-        await marcarEnviada(db, { participanteId: l.participanteId, token: l.token, whatsapp: l.numero, texto: l.texto });
-      }
+      await marcarEnviada(db, { participanteId: l.participanteId, token: l.token, whatsapp: l.numero, texto: l.texto });
+      await this.carregarLinks();
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message));
+    }
+  }
+
+  /** Volta a mensagem para pendente; desfazer a única enviada pede confirmação. */
+  async desfazer(l: LinkDaTela): Promise<void> {
+    this.erro.set("");
+    if (
+      this.enviadas() === 1 &&
+      !confirm("Esta é a única mensagem enviada. Desfazer solta a trava e deixa sortear e importar de novo. Continuar?")
+    )
+      return;
+    try {
+      await desfazerEnvio(db, l.participanteId);
       await this.carregarLinks();
     } catch (e) {
       this.erro.set(mensagemDeErro((e as Error).message));
