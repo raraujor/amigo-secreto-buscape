@@ -31,9 +31,12 @@ units:
   unit/001-fatia-base:
     stages:
       "3.1":
-        status: awaiting-approval
+        status: approved
         started: 2026-11-18T01:10:08.708Z
-        plan_hash: 0b700d0615f0eeb97422f06fbccd1708e4c3eeeeee47aff82249ec253cad4ef5
+        plan_hash: 1fb16fc2ead6ce4665724ffed3a21e7db7e7cd4e1e87ba3dbe2d687a12e6322a
+        approved_by: Rodrigo
+        approved_at: 2026-11-18T01:13:32.462Z
       "3.2":
-        status: pending
+        status: awaiting-approval
         commit_base: 5630e00aee0e4a4137a5532972bc70953e840206
+        started: 2026-11-18T01:13:33.738Z
