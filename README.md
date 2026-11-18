@@ -9,10 +9,11 @@ Sorteio de amigo secreto para a família, sem custo: o organizador importa a lis
 **Organizador** (entra com e-mail e senha):
 
 1. Informa os dados do encontro (data, local e valor sugerido).
-2. Importa a lista em CSV, com as colunas `nome`, `whatsapp` e, opcionalmente, `responsavel` (para crianças sem WhatsApp: o link vai para o número do responsável, dizendo de quem é).
+2. Importa a lista em CSV, com as colunas `nome`, `whatsapp` e, opcionalmente, `responsavel` (para crianças sem WhatsApp: o link vai para o número do responsável, dizendo de quem é). O sistema confere a planilha (linha sem nome ou número, número inválido, nome repetido, acentos do Excel, limite de 80 pessoas) e só importa se estiver certa; avisa quando duas pessoas usam o mesmo número sem responsável.
 3. Sorteia. Cada pessoa tira exatamente uma outra e é tirada por exatamente uma, e ninguém tira a si mesmo.
-4. Para cada pessoa, toca em **Enviar pelo WhatsApp**: abre a conversa com a mensagem e o link prontos.
-5. Acompanha quem já viu o resultado e quando.
+4. Para cada pessoa, toca em **Enviar pelo WhatsApp**: abre a conversa com a mensagem e o link prontos e já marca a mensagem como enviada (há **Desfazer** para quem tocou e não enviou).
+5. Acompanha o status de cada mensagem (pendente, enviada ou com falha) e quem já viu o resultado, e pode ver o resultado completo, atrás de um botão.
+6. Depois que alguma mensagem foi enviada, sortear de novo e importar outra lista ficam bloqueados; para corrigir, há **Recomeçar do zero**, com confirmação digitada.
 
 **Participante:** abre o link recebido, toca em **Ver quem eu tirei** e vê o amigo secreto e os dados do encontro. O link tem um identificador aleatório de 128 bits e só mostra o resultado daquela pessoa.
 
