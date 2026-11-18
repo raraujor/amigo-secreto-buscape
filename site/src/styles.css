@@ -26,3 +26,5 @@ th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #eee6
 app-entrar { display: block; padding: 2rem 1.25rem; }
 app-entrar h1 { color: #14532d; margin-bottom: 1rem; }
 app-entrar label { display: block; margin-bottom: .5rem; }
+
+td.visto { color: #14532d; font-weight: 600; }

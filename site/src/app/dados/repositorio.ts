@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  Timestamp,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -79,15 +80,27 @@ export async function lerLink(
 }
 
 /**
- * Lê os links já gerados (token e nome de quem recebe), sem o nome do amigo, para a área do
- * organizador mostrá-los de novo depois de recarregar a página.
+ * Lê os links já gerados (token, nome de quem recebe e quando tocou em "Ver quem eu tirei"),
+ * sem o nome do amigo, para a área do organizador mostrá-los depois de recarregar a página.
  */
 export async function lerLinks(
   db: Firestore,
-): Promise<{ token: string; participanteId: string; participante: string }[]> {
+): Promise<{ token: string; participanteId: string; participante: string; abertoEm: Date | null }[]> {
   const todos = await getDocs(collection(db, "links"));
   return todos.docs.map((d) => {
-    const { participanteId, participante } = d.data() as { participanteId: string; participante: string };
-    return { token: d.id, participanteId, participante };
+    const { participanteId, participante, abertoEm } = d.data() as {
+      participanteId: string;
+      participante: string;
+      abertoEm: Timestamp | null;
+    };
+    return { token: d.id, participanteId, participante, abertoEm: abertoEm ? abertoEm.toDate() : null };
   });
+}
+
+/** Quando o sorteio atual foi feito; null se ainda não houve sorteio. */
+export async function lerSorteioAtual(db: Firestore): Promise<{ id: string; criadoEm: Date } | null> {
+  const sorteio = await getDoc(doc(db, "sorteios", "atual"));
+  if (!sorteio.exists()) return null;
+  const { id, criadoEm } = sorteio.data() as { id: string; criadoEm: Timestamp };
+  return { id, criadoEm: criadoEm.toDate() };
 }

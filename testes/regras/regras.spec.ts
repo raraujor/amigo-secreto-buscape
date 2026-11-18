@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { lerCsv } from "../../comum/csv";
-import { gravarSorteio, importarParticipantes, lerLinks } from "../../site/src/app/dados/repositorio";
+import { gravarSorteio, importarParticipantes, lerLinks, lerSorteioAtual } from "../../site/src/app/dados/repositorio";
 
 const PROJETO = "demo-amigo-secreto";
 const ORGANIZADOR = /return '([^']+)';/.exec(readFileSync("firestore.rules", "utf8"))?.[1] ?? "";
@@ -211,4 +211,28 @@ it("US4 FR-004 lerLinks devolve o token e o nome de cada participante depois do 
   for (const link of links) expect(tokens.get(link.participanteId)).toBe(link.token);
   expect(new Set(links.map((l) => l.participante)).size).toBe(37);
   expect(JSON.stringify(links)).not.toContain("amigo");
+});
+
+it("US4 FR-004 lerSorteioAtual devolve a data e hora em que o sorteio foi feito e null antes dele", async () => {
+  expect(await lerSorteioAtual(org)).toBeNull();
+  await importarParticipantes(org, fixture);
+  const antes = Date.now();
+  const { sorteioId } = await gravarSorteio(org);
+  const sorteio = await lerSorteioAtual(org);
+  expect(sorteio?.id).toBe(sorteioId);
+  expect(sorteio?.criadoEm).toBeInstanceOf(Date);
+  expect(Math.abs((sorteio?.criadoEm.getTime() ?? 0) - antes)).toBeLessThan(60_000);
+});
+
+it("US4 FR-004 lerLinks mostra quem já tocou em Ver quem eu tirei e quando", async () => {
+  await importarParticipantes(org, fixture.slice(0, 3));
+  const { tokens } = await gravarSorteio(org);
+  const antes = await lerLinks(org);
+  expect(antes.every((l) => l.abertoEm === null)).toBe(true);
+  const [primeiro] = antes;
+  await updateDoc(doc(visitante, "links", tokens.get(primeiro.participanteId) as string), { abertoEm: serverTimestamp() });
+  const depois = await lerLinks(org);
+  const abertos = depois.filter((l) => l.abertoEm !== null);
+  expect(abertos.map((l) => l.participanteId)).toEqual([primeiro.participanteId]);
+  expect(abertos[0].abertoEm).toBeInstanceOf(Date);
 });
