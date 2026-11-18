@@ -78,7 +78,7 @@ import { db } from "../firebase";
                 Que o Natal da família seja cheio de amor e alegria! ✨</p>
               @if (encontro(); as e) {
                 <div class="encontro">
-                  <strong>🎄 O encontro</strong><br />
+                  <strong>🎄 Nosso Natal em Família será:</strong><br />
                   📅 {{ e.data }}<br />📍 {{ e.local }}<br />💰 Valor sugerido: {{ e.valor }}
                 </div>
               }
