@@ -1,10 +1,12 @@
 import { Component, OnInit, signal } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { signOut } from "firebase/auth";
-import { lerCsv } from "../../../../comum/csv";
+import { confirmouRecomecar } from "../../../../comum/confirmacao";
 import { formatarDataHora } from "../../../../comum/data";
+import { mensagemDeErro } from "../../../../comum/erros";
 import { linkWhatsapp, montarMensagem } from "../../../../comum/mensagens";
-import { FormsModule } from "@angular/forms";
+import { prepararImportacao } from "../../../../comum/planilha";
 import {
   type Encontro,
   type Participante,
@@ -14,7 +16,10 @@ import {
   lerEncontro,
   lerLinks,
   lerParticipantes,
+  lerResultado,
   lerSorteioAtual,
+  recomecar,
+  resumoDoSorteio,
 } from "../dados/repositorio";
 import { auth, db } from "../firebase";
 
@@ -48,8 +53,16 @@ interface LinkDaTela {
 
     <section class="cartao">
       <h2>1. Importar a lista</h2>
-      <p class="dica">Planilha CSV com as colunas nome, whatsapp e responsavel.</p>
+      <p class="dica">Planilha CSV com as colunas nome, whatsapp e responsavel (até 80 pessoas).</p>
       <input type="file" accept=".csv,text/csv" (change)="importar($event)" />
+      @if (errosPlanilha().length) {
+        <p class="erro">A planilha não foi importada. Corrija e envie de novo:</p>
+        <ul class="erro">@for (e of errosPlanilha(); track e) { <li>{{ e }}</li> }</ul>
+      }
+      @if (avisosPlanilha().length) {
+        <p class="aviso">Importada, com avisos:</p>
+        <ul class="aviso">@for (a of avisosPlanilha(); track a) { <li>{{ a }}</li> }</ul>
+      }
       <p class="erro">{{ erro() }}</p>
     </section>
 
@@ -86,6 +99,34 @@ interface LinkDaTela {
           }
         </table>
       </section>
+
+      <section class="cartao">
+        <h2>Resultado completo</h2>
+        <p class="dica">Só você vê. Some de novo ao recarregar a página.</p>
+        <button type="button" (click)="alternarResultado()">
+          {{ resultado() ? "Esconder resultado" : "Mostrar resultado (só você vê)" }}</button>
+        @if (resultado(); as pares) {
+          <table>
+            <tr><th>Quem</th><th>tirou</th></tr>
+            @for (r of pares; track r.participante) {
+              <tr><td>{{ r.participante }}</td><td>{{ r.amigo }}</td></tr>
+            }
+          </table>
+        }
+      </section>
+
+      <section class="cartao perigo">
+        <h2>Recomeçar do zero</h2>
+        <p>Isso apaga <strong>{{ resumo().links }} links</strong>, <strong>{{ resumo().enviadas }} mensagens enviadas</strong>
+          e <strong>{{ resumo().abertos }} aberturas</strong>.</p>
+        <p class="dica">Os links que as pessoas já receberam deixam de funcionar e elas precisam receber de novo.
+          A lista de participantes e os dados do encontro ficam.</p>
+        <label>Para confirmar, digite RECOMEÇAR
+          <input type="text" name="confirmacao" [(ngModel)]="confirmacao" autocomplete="off" /></label>
+        <button type="button" class="perigo-botao" (click)="recomecarTudo()"
+          [disabled]="!podeRecomecar()">{{ apagando() ? "Apagando…" : "Recomeçar do zero" }}</button>
+        @if (mensagemRecomeco()) { <p class="visto-msg">{{ mensagemRecomeco() }}</p> }
+      </section>
     }
   `,
 })
@@ -97,7 +138,15 @@ export class Organizador implements OnInit {
   encontro: Encontro = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
   readonly encontroSalvo = signal(false);
   readonly erro = signal("");
+  readonly errosPlanilha = signal<string[]>([]);
+  readonly avisosPlanilha = signal<string[]>([]);
   readonly copiado = signal("");
+  /** O resultado completo só é lido e desenhado depois do toque no botão. */
+  readonly resultado = signal<{ participante: string; amigo: string }[] | null>(null);
+  readonly resumo = signal({ links: 0, enviadas: 0, abertos: 0 });
+  confirmacao = "";
+  readonly apagando = signal(false);
+  readonly mensagemRecomeco = signal("");
   private readonly base = `${location.origin}${location.pathname}#/l/`;
 
   constructor(private readonly router: Router) {}
@@ -139,32 +188,73 @@ export class Organizador implements OnInit {
     );
     const sorteio = await lerSorteioAtual(db);
     this.sorteadoEm.set(sorteio ? formatarDataHora(sorteio.criadoEm) : "");
+    this.resumo.set(await resumoDoSorteio(db));
   }
 
   async importar(evento: Event): Promise<void> {
     this.erro.set("");
+    this.errosPlanilha.set([]);
+    this.avisosPlanilha.set([]);
     const arquivo = (evento.target as HTMLInputElement).files?.[0];
     if (!arquivo) return;
     try {
-      const texto = new TextDecoder("utf-8").decode(await arquivo.arrayBuffer());
-      await importarParticipantes(db, lerCsv(texto));
+      const pronto = prepararImportacao(new Uint8Array(await arquivo.arrayBuffer()));
+      if (pronto.erros.length) {
+        this.errosPlanilha.set(pronto.erros);
+        return;
+      }
+      await importarParticipantes(db, pronto.linhas);
+      this.avisosPlanilha.set(pronto.avisos);
+      this.resultado.set(null);
       this.participantes.set(await lerParticipantes(db));
-    } catch {
-      this.erro.set("Não foi possível ler a planilha. Confira as colunas nome, whatsapp e responsavel.");
+      await this.carregarLinks();
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message, "importar"));
     }
   }
 
   async sortear(): Promise<void> {
     this.erro.set("");
+    if (this.links().length > 0 && !confirm("Sortear de novo invalida os links atuais. Continuar?")) return;
     try {
       await gravarSorteio(db);
+      this.resultado.set(null);
       await this.carregarLinks();
     } catch (e) {
-      this.erro.set(
-        (e as Error).message === "MINIMO_DOIS"
-          ? "São precisos ao menos 2 participantes para sortear."
-          : "Não foi possível sortear.",
-      );
+      this.erro.set(mensagemDeErro((e as Error).message, "sortear"));
+    }
+  }
+
+  async alternarResultado(): Promise<void> {
+    if (this.resultado()) {
+      this.resultado.set(null);
+      return;
+    }
+    try {
+      this.resultado.set(await lerResultado(db));
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message));
+    }
+  }
+
+  podeRecomecar(): boolean {
+    return confirmouRecomecar(this.confirmacao) && !this.apagando();
+  }
+
+  async recomecarTudo(): Promise<void> {
+    if (!this.podeRecomecar()) return;
+    this.apagando.set(true);
+    this.mensagemRecomeco.set("");
+    try {
+      await recomecar(db);
+      this.confirmacao = "";
+      this.resultado.set(null);
+      await this.carregarLinks();
+      this.mensagemRecomeco.set("Tudo recomeçado. Você pode importar e sortear de novo.");
+    } catch {
+      this.mensagemRecomeco.set("Nada foi apagado. Tente de novo.");
+    } finally {
+      this.apagando.set(false);
     }
   }
 

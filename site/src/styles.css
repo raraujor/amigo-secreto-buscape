@@ -31,3 +31,9 @@ td.visto { color: #14532d; font-weight: 600; }
 .visto-msg { color: #14532d; font-weight: 600; margin: .5rem 0 0; }
 label { display: block; }
 a.whats { display: inline-block; background: #15803d; color: #fff; text-decoration: none; padding: .35rem .8rem; border-radius: .6rem; margin: 0 .35rem .35rem 0; font-size: .85rem; }
+
+.aviso { color: #92400e; }
+ul.erro, ul.aviso { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
+.cartao.perigo { border: 2px solid #b91c1c; background: #fff5f5; }
+.cartao.perigo h2 { color: #b91c1c; }
+button.perigo-botao { background: #7f1d1d; }

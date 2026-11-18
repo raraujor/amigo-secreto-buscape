@@ -2,14 +2,14 @@
 id: D-004
 type: decision
 title: Recomeçar do zero é a exceção explícita à trava do novo sorteio depois do envio
-status: proposed
+status: accepted
 scope: project
 tags: []
 governs: ["site/src/app/dados/repositorio.ts", "site/src/app/organizador/organizador.ts", "comum/confirmacao.ts"]
 refs: [FR-004, FR-001, unit/002-preparacao]
 evidence: ["pedido do organizador no chat durante o plano da unit/002 (18/11/2026): precisa ter alguma forma de recomeçar, talvez um botão apartado", "Q6 da 2.3: desistência ou entrada depois do sorteio, o organizador resolve à mão"]
 owner: ""
-approved_by: []
+approved_by: [Rodrigo]
 created: 2026-11-18
 review_by: ""
 supersedes: []

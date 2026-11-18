@@ -8,9 +8,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
+  limit,
+  query,
   Timestamp,
   serverTimestamp,
   setDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import type { LinhaParticipante } from "../../../../comum/csv";
@@ -26,11 +30,39 @@ export interface Participante {
   ordem: number;
 }
 
-/** Substitui todos os participantes pelos da planilha, numa gravação atômica. */
+/**
+ * Verdadeiro se alguma mensagem já foi marcada como enviada. Lê sempre do servidor (nunca do
+ * cache) e falha fechado: se não conseguir conferir, lança ENVIO_INDEFINIDO e quem chamou não
+ * faz nada. Só "enviada" trava; pendente e com falha não.
+ */
+export async function envioIniciado(db: Firestore): Promise<boolean> {
+  try {
+    const enviadas = await getDocsFromServer(query(collection(db, "mensagens"), where("status", "==", "enviada"), limit(1)));
+    return !enviadas.empty;
+  } catch {
+    throw new Error("ENVIO_INDEFINIDO");
+  }
+}
+
+/** Marca para apagar, num lote, o sorteio atual e tudo o que depende dele (links e mensagens). */
+async function apagarSorteio(db: Firestore, lote: ReturnType<typeof writeBatch>): Promise<void> {
+  const [links, mensagens] = await Promise.all([getDocs(collection(db, "links")), getDocs(collection(db, "mensagens"))]);
+  for (const d of links.docs) lote.delete(d.ref);
+  for (const d of mensagens.docs) lote.delete(d.ref);
+  lote.delete(doc(db, "sorteios", "atual"));
+}
+
+/**
+ * Substitui todos os participantes pelos da planilha, numa gravação atômica, e descarta o sorteio
+ * anterior (links, mensagens e aberturas). Depois que uma mensagem foi enviada, recusa com
+ * ENVIO_INICIADO e nada muda.
+ */
 export async function importarParticipantes(db: Firestore, linhas: readonly LinhaParticipante[]): Promise<void> {
+  if (await envioIniciado(db)) throw new Error("ENVIO_INICIADO");
   const antigos = await getDocs(collection(db, "participantes"));
   const lote = writeBatch(db);
   for (const antigo of antigos.docs) lote.delete(antigo.ref);
+  await apagarSorteio(db, lote);
   linhas.forEach((linha, ordem) => {
     lote.set(doc(collection(db, "participantes")), { ...linha, ordem });
   });
@@ -46,21 +78,25 @@ export async function lerParticipantes(db: Firestore): Promise<Participante[]> {
 }
 
 /**
- * Sorteia e grava, num único writeBatch atômico: os links antigos são apagados, um link
- * novo por participante é criado e sorteios/atual é regravado. Ou tudo, ou nada.
+ * Sorteia e grava, num único writeBatch atômico: os links e as mensagens antigos são apagados,
+ * um link novo por participante é criado e sorteios/atual é regravado. Ou tudo, ou nada. Depois
+ * que uma mensagem foi enviada, recusa com ENVIO_INICIADO e nada muda.
  */
 export async function gravarSorteio(
   db: Firestore,
   sortearFn: typeof sortear = sortear,
   gerarToken: () => string = gerarTokenPadrao,
 ): Promise<{ sorteioId: string; tokens: Map<string, string> }> {
+  if (await envioIniciado(db)) throw new Error("ENVIO_INICIADO");
   const participantes = await lerParticipantes(db);
   const pares = sortearFn(participantes.map((p) => p.id));
   const sorteioId = gerarToken();
   const links = montarLinks(participantes, pares, sorteioId, gerarToken);
-  const antigos = await getDocs(collection(db, "links"));
 
   const lote = writeBatch(db);
+  const mensagens = await getDocs(collection(db, "mensagens"));
+  for (const d of mensagens.docs) lote.delete(d.ref);
+  const antigos = await getDocs(collection(db, "links"));
   for (const antigo of antigos.docs) lote.delete(antigo.ref);
   for (const { token, ...link } of links) lote.set(doc(db, "links", token), link);
   lote.set(doc(db, "sorteios", "atual"), { id: sorteioId, criadoEm: serverTimestamp(), enviosIniciados: false });
@@ -124,4 +160,39 @@ export async function lerEncontro(db: Firestore): Promise<Encontro | null> {
 export async function gravarEncontro(db: Firestore, encontro: Encontro): Promise<void> {
   const { data, local, valor } = encontro;
   await setDoc(doc(db, "config", "encontro"), { data, local, valor });
+}
+
+/**
+ * Recomeça do zero (decisão D-004), mesmo depois do envio: apaga o sorteio, todos os links e
+ * todas as mensagens (inclusive as enviadas) num lote só, e mantém participantes e encontro.
+ * Em caso de falha nada é apagado.
+ */
+export async function recomecar(db: Firestore): Promise<void> {
+  const lote = writeBatch(db);
+  await apagarSorteio(db, lote);
+  await lote.commit();
+}
+
+/** O tamanho do que um recomeço apagaria: links, mensagens já enviadas e links já abertos. */
+export async function resumoDoSorteio(db: Firestore): Promise<{ links: number; enviadas: number; abertos: number }> {
+  const [links, mensagens] = await Promise.all([getDocs(collection(db, "links")), getDocs(collection(db, "mensagens"))]);
+  return {
+    links: links.size,
+    enviadas: mensagens.docs.filter((d) => (d.data() as { status?: string }).status === "enviada").length,
+    abertos: links.docs.filter((d) => (d.data() as { abertoEm?: unknown }).abertoEm != null).length,
+  };
+}
+
+/** O resultado completo (quem tirou quem), na ordem da planilha. Só o organizador consegue ler. */
+export async function lerResultado(db: Firestore): Promise<{ participante: string; amigo: string }[]> {
+  const [participantes, links] = await Promise.all([lerParticipantes(db), getDocs(collection(db, "links"))]);
+  const amigoDe = new Map(
+    links.docs.map((d) => {
+      const { participanteId, amigo } = d.data() as { participanteId: string; amigo: string };
+      return [participanteId, amigo] as const;
+    }),
+  );
+  return participantes
+    .filter((p) => amigoDe.has(p.id))
+    .map((p) => ({ participante: p.nome, amigo: amigoDe.get(p.id) as string }));
 }

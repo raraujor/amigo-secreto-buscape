@@ -76,3 +76,11 @@ it("config do aidlc aponta o comando com os emuladores e o relatório junit", ()
   expect(config).toMatch(/emulators:exec.*--only.*firestore,auth/);
   expect(config).toMatch(/report:\s*"?\.aidlc-junit\.xml"?/);
 });
+
+it("US2 US4 US5 FR-001 FR-004 FR-006 verificação manual registrada com todas as marcas ok e sem nomes nem links", () => {
+  const texto = readFileSync("testes/manual/preparacao-002.md", "utf8");
+  const marcas = texto.match(/^- \[[ x]\]/gm) ?? [];
+  expect(marcas.length).toBeGreaterThan(0);
+  expect(marcas.every((m) => m === "- [x]")).toBe(true);
+  expect(texto).not.toMatch(/https?:\/\//);
+});

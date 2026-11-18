@@ -45,5 +45,12 @@ units:
   unit/002-preparacao:
     stages:
       "3.1":
-        status: awaiting-approval
+        status: approved
         started: 2026-11-18T01:15:48.346Z
+        plan_hash: 38f717e3e1876dc54dd5fad7fef2c8f38106622376ba21edb594ec885a77f37a
+        approved_by: Rodrigo
+        approved_at: 2026-11-18T01:25:21.651Z
+      "3.2":
+        status: in-progress
+        commit_base: 009a0536ccb195353a586dab8065947397a72dfe
+        started: 2026-11-18T01:25:23.887Z
