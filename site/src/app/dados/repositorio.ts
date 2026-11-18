@@ -5,7 +5,6 @@
 import {
   type Firestore,
   collection,
-  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -111,30 +110,18 @@ export interface Encontro {
   data: string;
   local: string;
   valor: string;
-  /** Foto da homenagem (data URL) e sua legenda, se o organizador enviou. */
-  foto?: string;
-  legenda?: string;
 }
 
-/** Lê os dados do encontro (e a foto da homenagem, se houver); null se ainda não foram informados. */
+/** Lê os dados do encontro (data, local e valor sugerido); null se ainda não foram informados. */
 export async function lerEncontro(db: Firestore): Promise<Encontro | null> {
   const dados = await getDoc(doc(db, "config", "encontro"));
   if (!dados.exists()) return null;
-  const { data, local, valor, foto, legenda } = dados.data() as Encontro;
-  return { data, local, valor, ...(foto ? { foto } : {}), ...(legenda ? { legenda } : {}) };
+  const { data, local, valor } = dados.data() as Encontro;
+  return { data, local, valor };
 }
 
-/** Grava a data, o local e o valor do encontro, sem apagar a foto da homenagem. */
+/** Grava os dados do encontro, que valem para todos os participantes. */
 export async function gravarEncontro(db: Firestore, encontro: Encontro): Promise<void> {
   const { data, local, valor } = encontro;
-  await setDoc(doc(db, "config", "encontro"), { data, local, valor }, { merge: true });
-}
-
-/** Grava (ou, com null, remove) a foto da homenagem e a legenda, sem mexer nos dados do encontro. */
-export async function gravarFoto(db: Firestore, foto: string | null, legenda: string): Promise<void> {
-  await setDoc(
-    doc(db, "config", "encontro"),
-    { foto: foto ?? deleteField(), legenda: foto ? legenda : deleteField() },
-    { merge: true },
-  );
+  await setDoc(doc(db, "config", "encontro"), { data, local, valor });
 }
