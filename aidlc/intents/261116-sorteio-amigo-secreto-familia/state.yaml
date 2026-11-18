@@ -42,3 +42,8 @@ units:
         started: 2026-11-18T01:13:33.738Z
         approved_by: Rodrigo
         approved_at: 2026-11-18T01:14:45.733Z
+  unit/002-preparacao:
+    stages:
+      "3.1":
+        status: awaiting-approval
+        started: 2026-11-18T01:15:48.346Z
