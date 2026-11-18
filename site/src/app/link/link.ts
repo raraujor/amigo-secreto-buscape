@@ -1,8 +1,8 @@
 import { Component, OnInit, signal } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { type EstadoDaPaginaDoLink, estadoDaPaginaDoLink } from "../../../../comum/pagina-link";
-import { lerLink } from "../dados/repositorio";
+import { lerEncontro, lerLink } from "../dados/repositorio";
 import { db } from "../firebase";
 
 @Component({
@@ -129,8 +129,7 @@ export class Link implements OnInit {
 
   async revelar(): Promise<void> {
     this.estado.set(estadoDaPaginaDoLink(this.link, true));
-    const dados = await getDoc(doc(db, "config", "encontro")).catch(() => null);
-    if (dados?.exists()) this.encontro.set(dados.data() as { data: string; local: string; valor: string });
+    this.encontro.set(await lerEncontro(db).catch(() => null));
     // O resultado aparece mesmo que o registro da abertura falhe (FR-011).
     await updateDoc(doc(db, "links", this.token), { abertoEm: serverTimestamp() }).catch(() => undefined);
   }

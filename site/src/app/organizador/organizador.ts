@@ -3,6 +3,7 @@ import { Router } from "@angular/router";
 import { signOut } from "firebase/auth";
 import { lerCsv } from "../../../../comum/csv";
 import { formatarDataHora } from "../../../../comum/data";
+import { linkWhatsapp, montarMensagem } from "../../../../comum/mensagens";
 import { FormsModule } from "@angular/forms";
 import {
   type Encontro,
@@ -22,6 +23,8 @@ interface LinkDaTela {
   url: string;
   /** Quando a pessoa tocou em "Ver quem eu tirei"; null se ainda não tocou. */
   vistoEm: string | null;
+  /** Abre o WhatsApp na conversa com o número, com a mensagem pronta. */
+  whatsapp: string;
 }
 
 @Component({
@@ -74,8 +77,11 @@ interface LinkDaTela {
             <tr>
               <td>{{ l.nome }}</td>
               <td [class.visto]="l.vistoEm">{{ l.vistoEm ? "✓ Já viu em " + l.vistoEm : "Ainda não viu" }}</td>
-              <td><button type="button" class="discreto" (click)="copiar(l.url)">
-                {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button></td>
+              <td>
+                <a class="whats" [href]="l.whatsapp" target="_blank" rel="noopener">💬 Enviar pelo WhatsApp</a>
+                <button type="button" class="discreto" (click)="copiar(l.url)">
+                  {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button>
+              </td>
             </tr>
           }
         </table>
@@ -103,6 +109,9 @@ export class Organizador implements OnInit {
     if (salvo) {
       this.encontro = salvo;
       this.encontroSalvo.set(true);
+    } else {
+      // Ainda sem dados gravados: grava os sugeridos, para os links já mostrarem o encontro.
+      await this.salvarEncontro();
     }
   }
 
@@ -119,10 +128,12 @@ export class Organizador implements OnInit {
         .filter((p) => porParticipante.has(p.id))
         .map((p) => {
           const link = porParticipante.get(p.id);
+          const url = `${this.base}${link?.token}`;
           return {
             nome: p.nome,
-            url: `${this.base}${link?.token}`,
+            url,
             vistoEm: link?.abertoEm ? formatarDataHora(link.abertoEm) : null,
+            whatsapp: linkWhatsapp(p.whatsapp, montarMensagem(p, url)),
           };
         }),
     );

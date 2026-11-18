@@ -30,3 +30,4 @@ app-entrar label { display: block; margin-bottom: .5rem; }
 td.visto { color: #14532d; font-weight: 600; }
 .visto-msg { color: #14532d; font-weight: 600; margin: .5rem 0 0; }
 label { display: block; }
+a.whats { display: inline-block; background: #15803d; color: #fff; text-decoration: none; padding: .35rem .8rem; border-radius: .6rem; margin: 0 .35rem .35rem 0; font-size: .85rem; }
