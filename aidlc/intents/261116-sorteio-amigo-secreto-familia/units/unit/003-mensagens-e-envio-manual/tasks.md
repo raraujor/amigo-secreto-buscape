@@ -21,4 +21,4 @@
 
 ### Fase 3: Tela do organizador
 
-- [ ] T010 [US6] [US7] [US8] FR-008 FR-009 FR-010 Tela do organizador: status de cada mensagem, "Marcar como enviada" e "Desfazer" (com a confirmação da última enviada), o aviso de que os links já saíram, o contador e o botão do WhatsApp com o texto gravado, conferidos à mão em `testes/manual/mensagens-003.md` — teste: testes/repo/repositorio.spec.ts::US6 US7 US8 FR-008 FR-009 FR-010 verificação manual registrada com todas as marcas ok e sem nomes nem links
+- [x] T010 [US6] [US7] [US8] FR-008 FR-009 FR-010 Tela do organizador: status de cada mensagem, o toque em "Enviar pelo WhatsApp" que já marca como enviada, e "Desfazer" (com a confirmação da última enviada), o aviso de que os links já saíram, o contador e o botão do WhatsApp com o texto gravado, conferidos à mão em `testes/manual/mensagens-003.md` — teste: testes/repo/repositorio.spec.ts::US6 US7 US8 FR-008 FR-009 FR-010 verificação manual registrada com todas as marcas ok e sem nomes nem links

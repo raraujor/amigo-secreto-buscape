@@ -9,6 +9,8 @@ coverage/
 *.csv
 !testes/fixtures/*.csv
 
+backups/
+
 # Segredos e credenciais
 .env
 .env.*

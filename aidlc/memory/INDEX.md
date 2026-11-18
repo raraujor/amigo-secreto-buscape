@@ -8,3 +8,4 @@ D-001 | decision | accepted | Banco e login no Firebase (Firestore + Auth), plan
 D-002 | decision | accepted | Site em Angular no GitHub Pages por GitHub Actions, rotas por hash | site/**, .github/workflows/**
 D-003 | decision | accepted | Repositório público no GitHub com site/, envio/ e comum/ | site/**, envio/**, comum/**
 D-004 | decision | accepted | Recomeçar do zero é a exceção explícita à trava do novo sorteio depois do envio | site/src/app/dados/repositorio.ts, site/src/app/organizador/organizador.ts, comum/confirmacao.ts
+D-005 | decision | accepted | A lista de presentes chega ao link por um documento derivado, chaveado pelo token de quem lê | firestore.rules, site/src/app/dados/repositorio.ts, site/src/app/link/link.ts, comum/lista.ts

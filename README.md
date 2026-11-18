@@ -41,7 +41,7 @@ Os testes das regras do banco exigem o emulador do Firebase, que precisa de **Ja
 npx firebase emulators:exec --project demo-amigo-secreto --only firestore,auth "npx vitest run"
 ```
 
-Para criar a conta do organizador, rode `npx tsx scripts/criar-organizador.ts` (a senha é pedida sem aparecer na tela). A configuração web do Firebase fica em `site/src/environments/environment.ts`; ela é pública por natureza.
+Para criar a conta do organizador, rode `npx tsx scripts/criar-organizador.ts` (a senha é pedida sem aparecer na tela). Para guardar uma cópia dos dados do banco, rode `npx tsx scripts/backup.ts`: ele só lê, pede o e-mail e a senha do organizador (a senha sem aparecer na tela) e grava um arquivo JSON por coleção em `backups/`, pasta ignorada pelo git. Os arquivos têm os nomes, os telefones e os links da família, então guarde-os fora do repositório e do GitHub. A configuração web do Firebase fica em `site/src/environments/environment.ts`; ela é pública por natureza.
 
 ## Estrutura
 

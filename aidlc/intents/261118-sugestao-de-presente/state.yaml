@@ -1,0 +1,38 @@
+# Workflow state of one intent. Written by the CLI; agents read it, never edit it.
+version: 1
+intent: 261118-sugestao-de-presente
+scope: feature
+created: 2026-11-18T20:34:44.026Z
+stages:
+  "2.1":
+    status: skipped
+    skip_reason: greenfield project
+  "1.1":
+    status: approved
+    started: 2026-11-18T20:34:48.047Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-18T20:54:52.748Z
+  "2.3":
+    status: approved
+    started: 2026-11-18T20:55:01.071Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-18T21:47:15.118Z
+  "2.4":
+    status: approved
+    started: 2026-11-18T21:47:24.453Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-18T22:10:20.727Z
+  "2.7":
+    status: approved
+    started: 2026-11-18T22:10:30.830Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-18T22:14:02.924Z
+units:
+  unit/001-sugestao-de-presente:
+    stages:
+      "3.1":
+        status: approved
+        started: 2026-11-18T22:14:58.073Z
+        plan_hash: 73223e1ba37111417d0b5b1e43b1d7b54bdb274d1600502e109d3e3a06f1bbf4
+        approved_by: Rodrigo
+        approved_at: 2026-11-18T22:26:02.212Z
