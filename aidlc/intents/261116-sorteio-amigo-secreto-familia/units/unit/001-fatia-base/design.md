@@ -15,10 +15,11 @@ Critérios desta unidade (mapa de donos de `unit-of-work.md`):
 | US4 | AC1 a AC4 (sorteio válido, sem autossorteio, sem pares proibidos, mínimo 2) | FR-004, FR-005 |
 | US6 | AC3 (identificadores de 128 bits gerados no sorteio) | FR-007, FR-008, NFR-005 |
 | US9 | AC1 (sem os dados do encontro), AC2, AC3 (identificador inexistente), AC4 | FR-007 |
+| US3 | AC1 e AC2 antecipados: dados do encontro gravados pelo organizador, corrigíveis a qualquer momento e lidos na página do link | FR-003 |
 
 Também: estrutura do repositório (D-003), Firebase (D-001), site Angular no GitHub Pages (D-002); NFR-001, NFR-002 e NFR-008 pela escolha do D-001; e o campo de abertura no esquema (FR-011). A regra de gravação pública da abertura é criada e testada aqui quanto ao que ela **impede**; o registro da abertura em si (US11-AC5) é provado na unit/005.
 
-Fica para outras unidades: validações do CSV (formatos de número, nomes repetidos, linhas incompletas, Windows-1252), reimportação com sorteio existente, dados do encontro, resultado completo, novo sorteio e bloqueio após envio (002); mensagens `wa.me`, plano B e tela de status (003); programa de envio (004); registro e tela de aberturas (005).
+Fica para outras unidades: validações do CSV (formatos de número, nomes repetidos, linhas incompletas, Windows-1252), reimportação com sorteio existente, resultado completo, novo sorteio e bloqueio após envio (002); plano B, "Marcar como enviada" e status de envio (003); programa de envio (004); registro das aberturas e a tela completa de acompanhamento (005). Os dados do encontro, a mensagem `wa.me`, os links que ficam na tela, a data do sorteio e a indicação de quem já abriu foram antecipados para esta unidade, em forma mínima (seção "Entregas adicionais", abaixo).
 
 ## Plano técnico <!-- section: technical-plan -->
 
@@ -62,17 +63,28 @@ Os testes das regras não precisam de conta: o emulador usa o projeto fictício 
 - `gerarToken()`: 16 bytes de `crypto.getRandomValues`, em base64url (22 caracteres).
 - `montarLinks(participantes, pares, sorteioId, gerarToken)`: um link por participante com `participanteId`, nomes, `sorteioId` e `abertoEm: null`.
 - `destinoDaRota(rota, logado)`: a área do organizador sem login vai para `#/entrar`; logado, abre a área; `#/l/:token` é pública e entrega o token.
-- `estadoDaPaginaDoLink(doc | null, revelado)`: `invalido`, `fechado` ("Link de X" e o botão "Ver quem eu tirei") ou `aberto` ("X, você tirou: Y").
+- `estadoDaPaginaDoLink(doc | null, revelado)`: `invalido`, `fechado` ("X, você saiu com..." e o botão "Ver quem eu tirei") ou `aberto` ("X, você saiu com: Y").
 - `senhaForte(senha)`.
 
-**Gravação no banco (`site/src/app/dados/repositorio.ts`).** Funções sem Angular, que recebem a instância do Firestore e são chamadas pelos componentes e pelos testes contra o emulador: `importarParticipantes(db, linhas)` e `gravarSorteio(db, sortear, gerarToken)`. Assim o teste prova o mesmo código que o site roda.
+**Gravação no banco (`site/src/app/dados/repositorio.ts`).** Funções sem Angular, que recebem a instância do Firestore e são chamadas pelos componentes e pelos testes contra o emulador: `importarParticipantes(db, linhas)`, `gravarSorteio(db, sortear, gerarToken)`, `lerParticipantes`, `lerLink` (visitante), `lerLinks` (organizador: token, nome de quem recebe e `abertoEm`, sem o nome do amigo), `lerSorteioAtual`, `lerEncontro` e `gravarEncontro`. Assim o teste prova o mesmo código que o site roda.
 
 **Site (D-002).** Rotas por hash: `#/entrar`, `#/organizador` (protegida), `#/l/:token` (pública).
 - Importar: lê o arquivo como UTF-8, chama `lerCsv` e `normalizarWhatsapp`, e `importarParticipantes` substitui todos os `participantes` num `writeBatch` (apaga os antigos e grava os novos). Mostra a lista com nome, número e responsável.
 - Sortear: `gravarSorteio` lê `participantes`, chama `sortear` e `montarLinks`, consulta os `links` existentes e, num único `writeBatch` (37 × 2 + 1 operações, abaixo do limite de 500), apaga os links antigos, grava os novos e `sorteios/atual`. É atômico: ou tudo é gravado ou nada. As regras de quando se pode sortear de novo são da 002.
-- Página do link: `get` de `links/{token}`; mostra "Link de X" e o botão; o nome do amigo só aparece na tela depois do toque. (O documento já chega ao navegador ao abrir; quem abrir as ferramentas do navegador vê o nome. O critério é não mostrar por engano.)
+- Página do link: `get` de `links/{token}`; mostra "X, você saiu com..." e o botão; o nome do amigo só aparece na tela depois do toque ("X, você saiu com: Y"), junto do cartão do encontro. (O documento já chega ao navegador ao abrir; quem abrir as ferramentas do navegador vê o nome. O critério é não mostrar por engano.)
 
 **Fronteiras com outras unidades.** `lerCsv` e `normalizarWhatsapp` são escritos uma vez, aqui, já com separador, BOM, aspas e acentos; a 002 acrescenta as validações (linha incompleta, nome repetido, número curto, Windows-1252, avisos). O teste que grava `abertoEm` com a hora do servidor (T011) existe aqui como prova de que a regra aceita a gravação legítima e recusa as demais; a 005 prova o fluxo da página. A varredura da T014 usa `git ls-files --cached --others --exclude-standard`, que vê arquivos versionados e ainda não commitados, e procura e-mails fora de `exemplo.test`, senhas atribuídas em texto claro, CSV fora de `testes/fixtures/` e `.env*`; nomes reais da família não são detectáveis por máquina, por isso a fixture é inventada e testada (DDD 00). A T015 também confere, à mão, que o cadastro público do Firebase Auth está desligado.
+
+**Entregas adicionais, pedidas pelo organizador durante o uso.** Depois da primeira publicação, o organizador pediu melhorias que **antecipam**, em forma mínima, partes das unidades 002, 003 e 005. Elas não têm FR próprio (a data do sorteio, por exemplo, não é requisito); as tarefas citam o FR e a história mais próximos. O `unit-of-work.md` aprovado na 2.7 não é alterado, e fica combinado assim:
+- **002** reaproveita `lerEncontro`/`gravarEncontro` e a tela do encontro e acrescenta o que sobra: validações da planilha, reimportação e as travas do novo sorteio.
+- **003** reaproveita `comum/mensagens.ts` e o botão do WhatsApp (os textos são os das histórias e não mudam sem aprovação) e acrescenta "Marcar como enviada", o status por mensagem e o plano B.
+- **005** reaproveita `lerLinks` (que já lê `abertoEm`) e acrescenta o registro completo das aberturas (cada pessoa uma vez, o responsável que abre o link da criança) e a tela de acompanhamento.
+O texto da página do link mudou a pedido do organizador: antes do toque, "X, você saiu com..."; depois, "X, você saiu com: Y" (as histórias US9 e US10 dizem "Link de X" e "você tirou"; os testes de `pagina-link` já seguem o texto novo). Em todo caso valem as regras desta unidade: a lista do organizador não traz o nome do amigo, e a gravação do encontro é só do organizador. Os valores sugeridos do encontro só são gravados quando o banco ainda não tem nenhum e a tela já exige login; nunca sobrescrevem valores já salvos. Esse comportamento de tela, o botão do WhatsApp, o favicon e a página natalina não têm teste automático; o organizador os conferiu no site publicado (v1.0.0). A mensagem `wa.me` leva o link pessoal em texto na URL, que só abre no WhatsApp do próprio organizador; fica no histórico do navegador dele. Números sem DDI ou inválidos são tratados na validação da planilha (002).
+- página do link natalina, com mensagem acolhedora, neve, enfeites e o cartão "Nosso Natal em Família será:" com data, local e valor (texto: "Fulano, você saiu com..." antes do toque e "Fulano, você saiu com: Ciclano" depois);
+- links do sorteio que continuam na tela depois de recarregar a página (`lerLinks`), com a data e a hora do sorteio (`lerSorteioAtual`, `formatarDataHora`, no horário de Brasília) e a indicação de quem já tocou em "Ver quem eu tirei" (`abertoEm`);
+- dados do encontro editáveis na área do organizador (`lerEncontro`, `gravarEncontro`); quando o banco ainda não os tem, a tela grava os sugeridos ao abrir;
+- botão "Enviar pelo WhatsApp" por participante: `comum/mensagens.ts` monta a mensagem ("Oi Maria, este é o seu link do amigo secreto: <link>" ou, com responsável, "Oi Maria, este é o link do amigo secreto de João: <link>") e o link `wa.me`; marcar como enviada e o status são da 003;
+- favicon de Natal, README e a primeira versão (v1.0.0). A planilha `testes/fixtures/familia-7.csv` é um subconjunto da fictícia.
 
 **Limite assumido.** As telas Angular não têm teste automático: o que só a tela mostra (37 linhas na lista, os botões, a publicação) é provado pela verificação manual da T015. Os testes da T013 provam a lógica que as telas chamam (rotas, CSV para a lista).
 
@@ -106,7 +118,10 @@ Na ordem das tarefas:
 5. `comum/pagina-link.ts`, `comum/pagina-link.spec.ts`, `comum/rotas.ts`, `comum/rotas.spec.ts`
 6. `comum/senha.ts`, `comum/senha.spec.ts`, `scripts/criar-organizador.ts`, `scripts/criar-organizador.spec.ts`
 7. `firestore.rules`, `firebase.json`, `site/src/app/dados/repositorio.ts`, `testes/regras/regras.spec.ts`
-8. `site/` (projeto Angular): `site/src/app/app.routes.ts`, `site/src/app/firebase.ts`, `site/src/app/entrar/entrar.component.ts`, `site/src/app/organizador/organizador.component.ts`, `site/src/app/link/link.component.ts`, `site/src/environments/environment.ts`
+8. `site/` (projeto Angular): `site/src/app/app.routes.ts`, `site/src/app/firebase.ts`, `site/src/app/entrar/entrar.ts`, `site/src/app/organizador/organizador.ts`, `site/src/app/link/link.ts`, `site/src/environments/environment.ts`
 9. `.github/workflows/pages.yml`
 10. `testes/manual/fatia-001.md`
 11. `aidlc/config.yaml` (comando e relatório de teste)
+12. `comum/data.ts`, `comum/data.spec.ts`, `comum/mensagens.ts`, `comum/mensagens.spec.ts`
+13. `testes/fixtures/familia-7.csv`, `README.md`
+14. `site/src/index.html`, `site/src/styles.css`, `site/angular.json`, `site/package.json`, `site/public/favicon.svg`, `site/public/favicon.ico`, `site/public/apple-touch-icon.png` (favicon de Natal, tema e idioma da página, estilos)
