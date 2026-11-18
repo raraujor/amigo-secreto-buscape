@@ -59,5 +59,12 @@ units:
   unit/003-mensagens-e-envio-manual:
     stages:
       "3.1":
-        status: awaiting-approval
+        status: approved
         started: 2026-11-18T01:45:18.407Z
+        plan_hash: ad2c69af11f4e4f89ee1fa9d134b538b3604fa75c334bd1388c2de27485e04d1
+        approved_by: Rodrigo
+        approved_at: 2026-11-18T01:50:50.282Z
+      "3.2":
+        status: in-progress
+        commit_base: 589ce4cf2fe7277c519a8949c8cb7b52f9fd94f3
+        started: 2026-11-18T01:50:51.544Z

@@ -5,27 +5,37 @@ import { signOut } from "firebase/auth";
 import { confirmouRecomecar } from "../../../../comum/confirmacao";
 import { formatarDataHora } from "../../../../comum/data";
 import { mensagemDeErro } from "../../../../comum/erros";
-import { linkWhatsapp, montarMensagem } from "../../../../comum/mensagens";
+import { linkWhatsapp, resumoDeEnvio, rotuloDoStatus, textoDaMensagem } from "../../../../comum/mensagens";
 import { prepararImportacao } from "../../../../comum/planilha";
 import {
   type Encontro,
   type Participante,
+  desfazerEnvio,
   gravarEncontro,
   gravarSorteio,
   importarParticipantes,
   lerEncontro,
   lerLinks,
+  lerMensagens,
   lerParticipantes,
   lerResultado,
   lerSorteioAtual,
+  marcarEnviada,
   recomecar,
   resumoDoSorteio,
 } from "../dados/repositorio";
 import { auth, db } from "../firebase";
 
 interface LinkDaTela {
+  participanteId: string;
+  token: string;
   nome: string;
   url: string;
+  /** Número do WhatsApp da linha e o texto da mensagem (o gravado, ou o montado na hora). */
+  numero: string;
+  texto: string;
+  status: string;
+  rotulo: string;
   /** Quando a pessoa tocou em "Ver quem eu tirei"; null se ainda não tocou. */
   vistoEm: string | null;
   /** Abre o WhatsApp na conversa com o número, com a mensagem pronta. */
@@ -83,15 +93,23 @@ interface LinkDaTela {
 
     @if (links().length) {
       <section class="cartao">
-        <h2>Links do sorteio ({{ links().length }}) - {{ sorteadoEm() }}</h2>
+        <h2>{{ tituloDaLista() }}</h2>
         <p class="dica">Os links ficam guardados: pode fechar e voltar quando quiser.</p>
+        @if (enviadas() > 0) {
+          <p class="aviso">Os links já saíram: sortear de novo e importar outra lista ficam bloqueados.
+            Para refazer, use Recomeçar do zero.</p>
+        }
+        <p class="erro">{{ erro() }}</p>
         <table>
           @for (l of links(); track l.url) {
             <tr>
               <td>{{ l.nome }}</td>
               <td [class.visto]="l.vistoEm">{{ l.vistoEm ? "✓ Já viu em " + l.vistoEm : "Ainda não viu" }}</td>
+              <td [class.visto]="l.status === 'enviada'" [class.aviso]="l.status === 'falha'">{{ l.rotulo }}</td>
               <td>
                 <a class="whats" [href]="l.whatsapp" target="_blank" rel="noopener">💬 Enviar pelo WhatsApp</a>
+                <button type="button" class="discreto" (click)="alternarEnvio(l)">
+                  {{ l.status === "enviada" ? "Desfazer" : "Marcar como enviada" }}</button>
                 <button type="button" class="discreto" (click)="copiar(l.url)">
                   {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button>
               </td>
@@ -134,6 +152,7 @@ export class Organizador implements OnInit {
   readonly participantes = signal<Participante[]>([]);
   readonly links = signal<LinkDaTela[]>([]);
   readonly sorteadoEm = signal("");
+  readonly enviadas = signal(0);
   /** Valores sugeridos até o organizador salvar os dados reais. */
   encontro: Encontro = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
   readonly encontroSalvo = signal(false);
@@ -171,21 +190,34 @@ export class Organizador implements OnInit {
 
   /** Lê do banco os links do último sorteio, na ordem da planilha. */
   private async carregarLinks(): Promise<void> {
-    const porParticipante = new Map((await lerLinks(db)).map((l) => [l.participanteId, l]));
+    const [linksLidos, mensagens] = await Promise.all([lerLinks(db), lerMensagens(db)]);
+    const porParticipante = new Map(linksLidos.map((l) => [l.participanteId, l]));
     this.links.set(
       this.participantes()
         .filter((p) => porParticipante.has(p.id))
         .map((p) => {
           const link = porParticipante.get(p.id);
-          const url = `${this.base}${link?.token}`;
+          const token = link?.token ?? "";
+          const url = `${this.base}${token}`;
+          const gravada = mensagens.get(p.id);
+          const texto = textoDaMensagem(gravada, p, url);
+          const numero = gravada?.whatsapp || p.whatsapp;
+          const status = gravada?.status ?? "pendente";
           return {
+            participanteId: p.id,
+            token,
             nome: p.nome,
             url,
+            numero,
+            texto,
+            status,
+            rotulo: rotuloDoStatus(status),
             vistoEm: link?.abertoEm ? formatarDataHora(link.abertoEm) : null,
-            whatsapp: linkWhatsapp(p.whatsapp, montarMensagem(p, url)),
+            whatsapp: linkWhatsapp(numero, texto),
           };
         }),
     );
+    this.enviadas.set([...mensagens.values()].filter((m) => m.status === "enviada").length);
     const sorteio = await lerSorteioAtual(db);
     this.sorteadoEm.set(sorteio ? formatarDataHora(sorteio.criadoEm) : "");
     this.resumo.set(await resumoDoSorteio(db));
@@ -217,7 +249,7 @@ export class Organizador implements OnInit {
     this.erro.set("");
     if (this.links().length > 0 && !confirm("Sortear de novo invalida os links atuais. Continuar?")) return;
     try {
-      await gravarSorteio(db);
+      await gravarSorteio(db, { baseUrl: this.base });
       this.resultado.set(null);
       await this.carregarLinks();
     } catch (e) {
@@ -255,6 +287,29 @@ export class Organizador implements OnInit {
       this.mensagemRecomeco.set("Nada foi apagado. Tente de novo.");
     } finally {
       this.apagando.set(false);
+    }
+  }
+
+  tituloDaLista(): string {
+    const resumo = resumoDeEnvio(this.enviadas());
+    return `Links do sorteio (${this.links().length}) - ${this.sorteadoEm()}${resumo ? ` - ${resumo}` : ""}`;
+  }
+
+  /** Marca a mensagem como enviada ou desfaz; desfazer a única enviada pede confirmação. */
+  async alternarEnvio(l: LinkDaTela): Promise<void> {
+    this.erro.set("");
+    try {
+      if (l.status === "enviada") {
+        const ultima = this.enviadas() === 1;
+        if (ultima && !confirm("Esta é a única mensagem enviada. Desfazer solta a trava e deixa sortear e importar de novo. Continuar?"))
+          return;
+        await desfazerEnvio(db, l.participanteId);
+      } else {
+        await marcarEnviada(db, { participanteId: l.participanteId, token: l.token, whatsapp: l.numero, texto: l.texto });
+      }
+      await this.carregarLinks();
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message));
     }
   }
 

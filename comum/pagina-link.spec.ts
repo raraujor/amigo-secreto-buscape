@@ -21,3 +21,9 @@ it("US9 FR-007 reabrir o mesmo link mostra o mesmo amigo", () => {
   const segunda = estadoDaPaginaDoLink(linkDeAna, true);
   expect(segunda).toEqual(primeira);
 });
+
+it("US10 FR-007 link aberto pelo responsável mostra de quem é o link antes do toque e nenhum nome sorteado", () => {
+  const estado = estadoDaPaginaDoLink({ participante: "João", amigo: "Laura" }, false);
+  expect(estado).toEqual({ tipo: "fechado", titulo: "João, você saiu com...", botao: "Ver quem eu tirei" });
+  expect(JSON.stringify(estado)).not.toContain("Laura");
+});

@@ -14,13 +14,18 @@ import {
   Timestamp,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
 import type { LinhaParticipante } from "../../../../comum/csv";
 import { montarLinks } from "../../../../comum/links";
 import { sortear } from "../../../../comum/sorteio";
+import { type StatusDaMensagem, gerarMensagens } from "../../../../comum/mensagens";
 import { gerarToken as gerarTokenPadrao } from "../../../../comum/token";
+
+/** Endereço de exemplo, só para os testes; a tela passa sempre o endereço do site. */
+const BASE_PADRAO = "https://exemplo.test/#/l/";
 
 export interface Participante {
   id: string;
@@ -79,30 +84,39 @@ export async function lerParticipantes(db: Firestore): Promise<Participante[]> {
 
 /**
  * Sorteia e grava, num único writeBatch atômico: os links e as mensagens antigos são apagados,
- * um link novo por participante é criado e sorteios/atual é regravado. Ou tudo, ou nada. Depois
- * que uma mensagem foi enviada, recusa com ENVIO_INICIADO e nada muda.
+ * um link e uma mensagem pendente novos por participante são criados e sorteios/atual é
+ * regravado. Ou tudo, ou nada. Depois que uma mensagem foi enviada, recusa com ENVIO_INICIADO e
+ * nada muda. `baseUrl` é o endereço da página do link (`https://…/#/l/`), usado no texto das
+ * mensagens.
  */
 export async function gravarSorteio(
   db: Firestore,
-  sortearFn: typeof sortear = sortear,
-  gerarToken: () => string = gerarTokenPadrao,
+  {
+    sortearFn = sortear,
+    gerarToken = gerarTokenPadrao,
+    baseUrl = BASE_PADRAO,
+  }: { sortearFn?: typeof sortear; gerarToken?: () => string; baseUrl?: string } = {},
 ): Promise<{ sorteioId: string; tokens: Map<string, string> }> {
   if (await envioIniciado(db)) throw new Error("ENVIO_INICIADO");
   const participantes = await lerParticipantes(db);
   const pares = sortearFn(participantes.map((p) => p.id));
   const sorteioId = gerarToken();
   const links = montarLinks(participantes, pares, sorteioId, gerarToken);
+  const tokens = new Map(links.map((l) => [l.participanteId, l.token]));
+  const mensagens = gerarMensagens(participantes, tokens, baseUrl);
 
   const lote = writeBatch(db);
-  const mensagens = await getDocs(collection(db, "mensagens"));
-  for (const d of mensagens.docs) lote.delete(d.ref);
+  const mensagensAntigas = await getDocs(collection(db, "mensagens"));
+  for (const d of mensagensAntigas.docs) lote.delete(d.ref);
   const antigos = await getDocs(collection(db, "links"));
   for (const antigo of antigos.docs) lote.delete(antigo.ref);
   for (const { token, ...link } of links) lote.set(doc(db, "links", token), link);
+  for (const { participanteId, ...resto } of mensagens)
+    lote.set(doc(db, "mensagens", participanteId), { ...resto, atualizadoEm: serverTimestamp() });
   lote.set(doc(db, "sorteios", "atual"), { id: sorteioId, criadoEm: serverTimestamp(), enviosIniciados: false });
   await lote.commit();
 
-  return { sorteioId, tokens: new Map(links.map((l) => [l.participanteId, l.token])) };
+  return { sorteioId, tokens };
 }
 
 /** Lê um link pelo token (visitante). Devolve null se não existir. */
@@ -195,4 +209,59 @@ export async function lerResultado(db: Firestore): Promise<{ participante: strin
   return participantes
     .filter((p) => amigoDe.has(p.id))
     .map((p) => ({ participante: p.nome, amigo: amigoDe.get(p.id) as string }));
+}
+
+export interface MensagemGravada {
+  token: string;
+  whatsapp: string;
+  texto: string;
+  status: StatusDaMensagem;
+}
+
+/** Só "enviada" e "falha" são status conhecidos além de pendente; qualquer outro valor é pendente. */
+function statusConhecido(valor: unknown): StatusDaMensagem {
+  return valor === "enviada" || valor === "falha" ? valor : "pendente";
+}
+
+/** Lê as mensagens gravadas: participanteId → mensagem. Só o organizador consegue. */
+export async function lerMensagens(db: Firestore): Promise<Map<string, MensagemGravada>> {
+  const todas = await getDocs(collection(db, "mensagens"));
+  return new Map(
+    todas.docs.map((d) => {
+      const v = d.data() as { token?: string; whatsapp?: string; texto?: string; status?: unknown };
+      return [d.id, { token: v.token ?? "", whatsapp: v.whatsapp ?? "", texto: v.texto ?? "", status: statusConhecido(v.status) }];
+    }),
+  );
+}
+
+/**
+ * Marca uma mensagem como enviada. Só grava se o link ainda existe (e é desse participante); senão
+ * lança SORTEIO_MUDOU e nada é criado. Se a mensagem não existe (sorteio feito antes das mensagens
+ * serem gravadas), cria a mensagem completa já como enviada.
+ */
+export async function marcarEnviada(
+  db: Firestore,
+  mensagem: { participanteId: string; token: string; whatsapp: string; texto: string },
+): Promise<void> {
+  const link = await getDoc(doc(db, "links", mensagem.token));
+  if (!link.exists() || (link.data() as { participanteId?: string }).participanteId !== mensagem.participanteId)
+    throw new Error("SORTEIO_MUDOU");
+  const ref = doc(db, "mensagens", mensagem.participanteId);
+  if ((await getDoc(ref)).exists()) {
+    await updateDoc(ref, { status: "enviada", atualizadoEm: serverTimestamp() });
+  } else {
+    const { token, whatsapp, texto } = mensagem;
+    await setDoc(ref, { token, whatsapp, texto, status: "enviada", atualizadoEm: serverTimestamp() });
+  }
+}
+
+/**
+ * Volta uma mensagem enviada para pendente. Se não existir ou não estiver enviada, lança
+ * SORTEIO_MUDOU. Desfazer a única enviada solta a trava do novo sorteio e da reimportação.
+ */
+export async function desfazerEnvio(db: Firestore, participanteId: string): Promise<void> {
+  const ref = doc(db, "mensagens", participanteId);
+  const atual = await getDoc(ref);
+  if (!atual.exists() || (atual.data() as { status?: unknown }).status !== "enviada") throw new Error("SORTEIO_MUDOU");
+  await updateDoc(ref, { status: "pendente", atualizadoEm: serverTimestamp() });
 }

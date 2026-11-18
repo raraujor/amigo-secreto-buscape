@@ -16,3 +16,7 @@ it("US4 FR-004 conferência que não pôde ser feita tem mensagem própria e err
   expect(desconhecido).toBe("Não foi possível concluir. Tente de novo.");
   expect(desconhecido).not.toContain("Ana");
 });
+
+it("US8 FR-010 mensagem de erro de sorteio que mudou pede para recarregar a página", () => {
+  expect(mensagemDeErro("SORTEIO_MUDOU")).toBe("O sorteio mudou. Recarregue a página e tente de novo.");
+});

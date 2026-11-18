@@ -24,12 +24,15 @@ import {
   gravarEncontro,
   gravarSorteio,
   importarParticipantes,
+  desfazerEnvio,
   lerEncontro,
   lerLink,
   lerLinks,
+  lerMensagens,
   lerParticipantes,
   lerResultado,
   lerSorteioAtual,
+  marcarEnviada,
   recomecar,
   resumoDoSorteio,
 } from "../../site/src/app/dados/repositorio";
@@ -294,12 +297,13 @@ it("US2 FR-001 importar depois de uma mensagem enviada é recusado e nada muda",
   await gravarSorteio(org);
   await mensagem(org, "m1", "enviada");
   const antes = (await lerParticipantes(org)).map((p) => p.nome);
+  const mensagensAntes = await tamanho(org, "mensagens");
 
   await expect(importarParticipantes(org, fixture.slice(5, 9))).rejects.toThrow("ENVIO_INICIADO");
 
   expect((await lerParticipantes(org)).map((p) => p.nome)).toEqual(antes);
   expect(await tamanho(org, "links")).toBe(5);
-  expect(await tamanho(org, "mensagens")).toBe(1);
+  expect(await tamanho(org, "mensagens")).toBe(mensagensAntes);
 });
 
 it("US2 FR-001 importar com mensagem pendente ou com falha é aceito", async () => {
@@ -334,7 +338,9 @@ it("US4 FR-004 sortear de novo antes do envio substitui o resultado, apaga as me
   const links = await getDocs(collection(org, "links"));
   expect(links.size).toBe(5);
   expect(links.docs.every((d) => d.data().sorteioId === segundo.sorteioId)).toBe(true);
-  expect(await tamanho(org, "mensagens")).toBe(0);
+  // A mensagem do sorteio antigo some; as de agora são as do novo sorteio (uma por participante).
+  expect((await getDoc(doc(org, "mensagens", "m1"))).exists()).toBe(false);
+  expect(await tamanho(org, "mensagens")).toBe(5);
   expect(await lerLink(visitante, tokenAntigo)).toBeNull();
 });
 
@@ -493,10 +499,11 @@ it("US4 FR-004 visitante e outra conta não conseguem recomeçar e nada é apaga
   await importarParticipantes(org, fixture.slice(0, 5));
   await gravarSorteio(org);
   await mensagem(org, "m1", "enviada");
+  const mensagensAntes = await tamanho(org, "mensagens");
   await negado(recomecar(visitante));
   await negado(recomecar(outraConta));
   expect(await tamanho(org, "links")).toBe(5);
-  expect(await tamanho(org, "mensagens")).toBe(1);
+  expect(await tamanho(org, "mensagens")).toBe(mensagensAntes);
   expect((await getDoc(doc(org, "sorteios", "atual"))).exists()).toBe(true);
 });
 
@@ -508,4 +515,165 @@ it("US4 FR-004 resumoDoSorteio conta os links, as mensagens enviadas e os links 
   await mensagem(org, "m3", "pendente");
   await updateDoc(doc(visitante, "links", [...tokens.values()][0]), { abertoEm: serverTimestamp() });
   expect(await resumoDoSorteio(org)).toEqual({ links: 5, enviadas: 2, abertos: 1 });
+});
+
+const BASE_DAS_MENSAGENS = "https://exemplo.test/#/l/";
+const NUMERO_DA_MARIA = "5534999990000";
+
+/** Importa e sorteia 3 pessoas e devolve o id e a mensagem gravada da primeira. */
+async function sortear3() {
+  await importarParticipantes(org, fixture.slice(0, 3));
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const mensagens = await lerMensagens(org);
+  const [participanteId, gravada] = [...mensagens.entries()][0];
+  return { participanteId, gravada, mensagens };
+}
+
+it("US6 FR-008 o sorteio grava uma mensagem pendente por participante, com os três textos exatos de Maria, João e Laura e o link do próprio token", async () => {
+  await importarParticipantes(org, [
+    { nome: "Maria", whatsapp: NUMERO_DA_MARIA, responsavel: null },
+    { nome: "João", whatsapp: NUMERO_DA_MARIA, responsavel: "Maria" },
+    { nome: "Laura", whatsapp: NUMERO_DA_MARIA, responsavel: "Maria" },
+  ]);
+  const { tokens } = await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const participantes = await lerParticipantes(org);
+  const mensagens = await lerMensagens(org);
+  const [maria, joao, laura] = participantes.map((p) => ({ id: p.id, token: tokens.get(p.id) as string }));
+
+  expect(mensagens.size).toBe(3);
+  expect(mensagens.get(maria.id)?.texto).toBe(`Oi Maria, este é o seu link do amigo secreto: ${BASE_DAS_MENSAGENS}${maria.token}`);
+  expect(mensagens.get(joao.id)?.texto).toBe(`Oi Maria, este é o link do amigo secreto de João: ${BASE_DAS_MENSAGENS}${joao.token}`);
+  expect(mensagens.get(laura.id)?.texto).toBe(`Oi Maria, este é o link do amigo secreto de Laura: ${BASE_DAS_MENSAGENS}${laura.token}`);
+  for (const m of mensagens.values()) {
+    expect(m.status).toBe("pendente");
+    expect(m.whatsapp).toBe(NUMERO_DA_MARIA);
+  }
+});
+
+it("US6 FR-008 depois de sortear de novo as mensagens são as do novo sorteio, todas pendentes", async () => {
+  await importarParticipantes(org, fixture.slice(0, 5));
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const segundo = await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const mensagens = await lerMensagens(org);
+  expect(mensagens.size).toBe(5);
+  for (const [id, m] of mensagens) {
+    expect(m.token).toBe(segundo.tokens.get(id));
+    expect(m.status).toBe("pendente");
+  }
+});
+
+it("US6 FR-008 o sorteio de 80 pessoas grava as 80 mensagens num lote só, mesmo sobre um sorteio anterior", async () => {
+  const oitenta = Array.from({ length: 80 }, (_, i) => ({
+    nome: `Pessoa ${i + 1}`,
+    whatsapp: `5500910${String(i).padStart(6, "0")}`,
+    responsavel: null,
+  }));
+  await importarParticipantes(org, oitenta);
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  expect((await lerMensagens(org)).size).toBe(80);
+  expect(await tamanho(org, "links")).toBe(80);
+});
+
+it("US8 FR-010 marcar como enviada grava o status e a hora, e desfazer volta para pendente", async () => {
+  const { participanteId, gravada, mensagens } = await sortear3();
+  await marcarEnviada(org, { participanteId, token: gravada.token, whatsapp: gravada.whatsapp, texto: gravada.texto });
+
+  const bruto = (await getDoc(doc(org, "mensagens", participanteId))).data();
+  expect(bruto?.status).toBe("enviada");
+  expect(bruto?.atualizadoEm).toBeInstanceOf(Timestamp);
+  expect(bruto?.texto).toBe(gravada.texto);
+  const depois = await lerMensagens(org);
+  expect([...depois.entries()].filter(([, m]) => m.status === "enviada").map(([id]) => id)).toEqual([participanteId]);
+  expect(depois.size).toBe(mensagens.size);
+
+  await desfazerEnvio(org, participanteId);
+  expect((await lerMensagens(org)).get(participanteId)?.status).toBe("pendente");
+});
+
+it("US8 FR-010 marcar a mensagem de um sorteio sem mensagens gravadas cria a mensagem como enviada", async () => {
+  const { participanteId, gravada } = await sortear3();
+  const todas = await getDocs(collection(org, "mensagens"));
+  for (const d of todas.docs) await deleteDoc(d.ref);
+  expect(await tamanho(org, "mensagens")).toBe(0);
+
+  await marcarEnviada(org, { participanteId, token: gravada.token, whatsapp: gravada.whatsapp, texto: "texto montado na tela" });
+
+  const criada = (await lerMensagens(org)).get(participanteId);
+  expect(criada).toEqual({ token: gravada.token, whatsapp: gravada.whatsapp, texto: "texto montado na tela", status: "enviada" });
+  expect(await tamanho(org, "mensagens")).toBe(1);
+});
+
+it("US8 FR-010 marcar com um token de sorteio que não existe mais é recusado e não cria mensagem", async () => {
+  const { participanteId, gravada } = await sortear3();
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  await expect(
+    marcarEnviada(org, { participanteId, token: gravada.token, whatsapp: gravada.whatsapp, texto: gravada.texto }),
+  ).rejects.toThrow("SORTEIO_MUDOU");
+  const mensagens = await lerMensagens(org);
+  expect(mensagens.size).toBe(3);
+  expect([...mensagens.values()].every((m) => m.status === "pendente")).toBe(true);
+});
+
+it("US8 FR-010 desfazer uma mensagem que não existe é recusado com SORTEIO_MUDOU e nada muda", async () => {
+  await sortear3();
+  await expect(desfazerEnvio(org, "id-que-nao-existe")).rejects.toThrow("SORTEIO_MUDOU");
+  expect(await tamanho(org, "mensagens")).toBe(3);
+});
+
+it("US8 FR-010 depois de marcar uma mensagem como enviada o sorteio e a importação são recusados, e depois de desfazer voltam a funcionar", async () => {
+  const { participanteId, gravada } = await sortear3();
+  await marcarEnviada(org, { participanteId, token: gravada.token, whatsapp: gravada.whatsapp, texto: gravada.texto });
+
+  await expect(gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS })).rejects.toThrow("ENVIO_INICIADO");
+  await expect(importarParticipantes(org, fixture.slice(3, 6))).rejects.toThrow("ENVIO_INICIADO");
+
+  await desfazerEnvio(org, participanteId);
+  await expect(gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS })).resolves.toBeDefined();
+  await expect(importarParticipantes(org, fixture.slice(3, 6))).resolves.toBeUndefined();
+});
+
+it("US7 FR-009 a leitura devolve cada mensagem como pendente, enviada ou com falha", async () => {
+  await importarParticipantes(org, fixture.slice(0, 3));
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const [a, b] = [...(await lerMensagens(org)).entries()];
+  await marcarEnviada(org, { participanteId: a[0], token: a[1].token, whatsapp: a[1].whatsapp, texto: a[1].texto });
+  // O "com falha" quem grava é o envio automático (unit/004); aqui é semeado direto no banco.
+  await setDoc(doc(org, "mensagens", b[0]), { status: "falha" }, { merge: true });
+
+  const status = [...(await lerMensagens(org)).values()].map((m) => m.status).sort();
+  expect(status).toEqual(["enviada", "falha", "pendente"]);
+});
+
+it("US7 FR-009 status ausente ou desconhecido aparece como pendente e não trava o sorteio", async () => {
+  await importarParticipantes(org, fixture.slice(0, 3));
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  const ids = [...(await lerMensagens(org)).keys()];
+  await updateDoc(doc(org, "mensagens", ids[0]), { status: "esquisito" });
+  await setDoc(doc(org, "mensagens", "sem-status"), { token: "x", whatsapp: "5500910002000", texto: "oi" });
+
+  const lidas = await lerMensagens(org);
+  expect(lidas.get(ids[0])?.status).toBe("pendente");
+  expect(lidas.get("sem-status")?.status).toBe("pendente");
+  await expect(gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS })).resolves.toBeDefined();
+});
+
+it("US1 NFR-007 visitante e outra conta não leem, marcam nem desfazem mensagens", async () => {
+  const { participanteId, gravada } = await sortear3();
+  const base = { participanteId, token: gravada.token, whatsapp: gravada.whatsapp, texto: gravada.texto };
+  for (const outro of [visitante, outraConta]) {
+    await negado(lerMensagens(outro));
+    await negado(marcarEnviada(outro, base));
+    await negado(desfazerEnvio(outro, participanteId));
+  }
+  expect((await lerMensagens(org)).get(participanteId)?.status).toBe("pendente");
+});
+
+it("US1 NFR-007 a mensagem gravada não pode ser lida pela chave pública, nem pelo id", async () => {
+  const { participanteId, gravada } = await sortear3();
+  await negado(getDoc(doc(visitante, "mensagens", participanteId)));
+  await negado(getDoc(doc(visitante, "mensagens", gravada.token)));
+  await negado(getDocs(collection(visitante, "mensagens")));
+  // O link, esse sim, pode ser lido por quem tem o token, mas não carrega o texto da mensagem.
+  expect(JSON.stringify((await getDoc(doc(visitante, "links", gravada.token))).data())).not.toContain("Oi ");
 });

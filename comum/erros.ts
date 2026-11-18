@@ -10,6 +10,8 @@ export function mensagemDeErro(codigo: string, acao: "sortear" | "importar" = "s
       return acao === "importar"
         ? "Os links já saíram, então não dá para importar outra lista."
         : "Os links já saíram, então não dá para sortear de novo.";
+    case "SORTEIO_MUDOU":
+      return "O sorteio mudou. Recarregue a página e tente de novo.";
     case "ENVIO_INDEFINIDO":
       return "Não foi possível conferir se os links já saíram. Tente de novo.";
     default:

@@ -84,3 +84,17 @@ it("US2 US4 US5 FR-001 FR-004 FR-006 verificação manual registrada com todas a
   expect(marcas.every((m) => m === "- [x]")).toBe(true);
   expect(texto).not.toMatch(/https?:\/\//);
 });
+
+it("US6 FR-008 a tela passa o endereço do site ao sortear", () => {
+  // Inspeção do código da tela: é o único jeito automático de proteger esse ponto sem rodar a tela.
+  const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
+  expect(tela).toMatch(/gravarSorteio\(db,\s*\{[^}]*baseUrl/);
+});
+
+it("US6 US7 US8 FR-008 FR-009 FR-010 verificação manual registrada com todas as marcas ok e sem nomes nem links", () => {
+  const texto = readFileSync("testes/manual/mensagens-003.md", "utf8");
+  const marcas = texto.match(/^- \[[ x]\]/gm) ?? [];
+  expect(marcas.length).toBeGreaterThan(0);
+  expect(marcas.every((m) => m === "- [x]")).toBe(true);
+  expect(texto).not.toMatch(/https?:\/\//);
+});
