@@ -21,7 +21,7 @@ construction:
     # Command the 3.2 gate runs; it must write a JUnit XML report. A list runs as is; text runs in
     # a shell (cmd on Windows, sh elsewhere). Empty means the tests-pass check does not run.
     # Examples: [bun, test, --reporter=junit, --reporter-outfile=.aidlc-junit.xml] | pytest --junitxml=.aidlc-junit.xml
-    command: ["npx", "firebase", "emulators:exec", "--project", "demo-amigo-secreto", "--only", "firestore,auth", "npx vitest run --reporter=default --reporter=junit --outputFile.junit=.aidlc-junit.xml"]
+    command: ["npx", "firebase", "emulators:exec", "--project", "demo-amigo-secreto", "--only", "firestore,auth", "npx vitest run"]
     # Path of the JUnit XML report, relative to the project root.
     report: ".aidlc-junit.xml"
     # Minutes before the command is stopped (fractions allowed).
