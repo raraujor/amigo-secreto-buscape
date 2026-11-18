@@ -5,10 +5,13 @@ import { lerCsv } from "../../../../comum/csv";
 import { formatarDataHora } from "../../../../comum/data";
 import { linkWhatsapp, montarMensagem } from "../../../../comum/mensagens";
 import { FormsModule } from "@angular/forms";
+import { fotoValida } from "../../../../comum/foto";
+import { reduzirFoto } from "../dados/imagem";
 import {
   type Encontro,
   type Participante,
   gravarEncontro,
+  gravarFoto,
   gravarSorteio,
   importarParticipantes,
   lerEncontro,
@@ -44,6 +47,18 @@ interface LinkDaTela {
       <label>Valor sugerido <input type="text" name="valor" [(ngModel)]="encontro.valor" /></label>
       <button type="button" (click)="salvarEncontro()">Salvar dados do encontro</button>
       @if (encontroSalvo()) { <p class="visto-msg">✓ Salvo. Já aparece nos links.</p> }
+    </section>
+
+    <section class="cartao">
+      <h2>Homenagem</h2>
+      <p class="dica">Uma foto com legenda que aparece na página de cada participante, depois que ele descobre o amigo secreto. Fica guardada no banco de dados, não no código do site.</p>
+      @if (foto()) { <img class="previa-foto" [src]="foto()" alt="Foto da homenagem" /> }
+      <input type="file" accept="image/*" (change)="escolherFoto($event)" />
+      <label>Legenda <input type="text" name="legenda" [(ngModel)]="legenda" /></label>
+      <button type="button" (click)="salvarFoto()" [disabled]="!foto()">Salvar homenagem</button>
+      @if (foto()) { <button type="button" class="discreto" (click)="removerFoto()">Remover foto</button> }
+      @if (mensagemFoto()) { <p class="visto-msg">{{ mensagemFoto() }}</p> }
+      <p class="erro">{{ erroFoto() }}</p>
     </section>
 
     <section class="cartao">
@@ -96,6 +111,10 @@ export class Organizador implements OnInit {
   /** Valores sugeridos até o organizador salvar os dados reais. */
   encontro: Encontro = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
   readonly encontroSalvo = signal(false);
+  readonly foto = signal("");
+  legenda = "Com saudade, os nossos avós 🤍";
+  readonly mensagemFoto = signal("");
+  readonly erroFoto = signal("");
   readonly erro = signal("");
   readonly copiado = signal("");
   private readonly base = `${location.origin}${location.pathname}#/l/`;
@@ -109,10 +128,37 @@ export class Organizador implements OnInit {
     if (salvo) {
       this.encontro = salvo;
       this.encontroSalvo.set(true);
+      this.foto.set(salvo.foto ?? "");
+      if (salvo.legenda) this.legenda = salvo.legenda;
     } else {
       // Ainda sem dados gravados: grava os sugeridos, para os links já mostrarem o encontro.
       await this.salvarEncontro();
     }
+  }
+
+  async escolherFoto(evento: Event): Promise<void> {
+    this.erroFoto.set("");
+    this.mensagemFoto.set("");
+    const arquivo = (evento.target as HTMLInputElement).files?.[0];
+    if (!arquivo) return;
+    try {
+      const url = await reduzirFoto(arquivo);
+      if (!fotoValida(url)) throw new Error("FOTO_GRANDE");
+      this.foto.set(url);
+    } catch {
+      this.erroFoto.set("Não foi possível usar essa foto. Tente outra imagem.");
+    }
+  }
+
+  async salvarFoto(): Promise<void> {
+    await gravarFoto(db, this.foto(), this.legenda);
+    this.mensagemFoto.set("✓ Homenagem salva. Já aparece nos links.");
+  }
+
+  async removerFoto(): Promise<void> {
+    await gravarFoto(db, null, "");
+    this.foto.set("");
+    this.mensagemFoto.set("Foto removida.");
   }
 
   async salvarEncontro(): Promise<void> {

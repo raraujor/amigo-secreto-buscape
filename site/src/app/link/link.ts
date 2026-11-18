@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { type EstadoDaPaginaDoLink, estadoDaPaginaDoLink } from "../../../../comum/pagina-link";
-import { lerEncontro, lerLink } from "../dados/repositorio";
+import { type Encontro, lerEncontro, lerLink } from "../dados/repositorio";
 import { db } from "../firebase";
 
 @Component({
@@ -31,6 +31,11 @@ import { db } from "../firebase";
       border-radius: 999px; color: #fff; cursor: pointer;
       background: linear-gradient(#d62828, #9b1c1c); box-shadow: 0 .3rem 0 #6b1212; }
     .botao:active { transform: translateY(.15rem); box-shadow: 0 .15rem 0 #6b1212; }
+    .homenagem { margin: 1.25rem auto 0; padding: .6rem .6rem 1rem; background: #fff; border-radius: .4rem;
+      box-shadow: 0 .3rem .9rem rgba(0,0,0,.25); transform: rotate(-1.5deg); max-width: 15rem; }
+    .homenagem img { display: block; width: 100%; border-radius: .2rem; }
+    .homenagem p { margin: .7rem .2rem 0; font-family: Georgia, "Times New Roman", serif; font-style: italic;
+      font-size: 1rem; color: #5b4636; }
     .encontro { margin-top: 1.25rem; padding: 1rem; background: #f3ecd9; border-radius: .75rem;
       text-align: left; font-size: .98rem; line-height: 1.7; }
     .segredo { margin-top: 1.25rem; font-size: .95rem; color: #6b5a47; }
@@ -76,6 +81,12 @@ import { db } from "../firebase";
               <p class="resultado">{{ textoAberto().antes }}<span class="amigo">{{ textoAberto().amigo }}</span></p>
               <p class="frase">Capriche no presente e guarde segredo até o grande dia.<br />
                 Que o Natal da família seja cheio de amor e alegria! ✨</p>
+              @if (encontro()?.foto; as foto) {
+                <figure class="homenagem" style="margin: 1.25rem auto 0">
+                  <img [src]="foto" alt="Foto em homenagem" />
+                  @if (encontro()?.legenda; as legenda) { <p>{{ legenda }}</p> }
+                </figure>
+              }
               @if (encontro(); as e) {
                 <div class="encontro">
                   <strong>🎄 Nosso Natal em Família será:</strong><br />
@@ -94,7 +105,7 @@ import { db } from "../firebase";
 export class Link implements OnInit {
   readonly carregando = signal(true);
   readonly estado = signal<EstadoDaPaginaDoLink>({ tipo: "invalido", texto: "" });
-  readonly encontro = signal<{ data: string; local: string; valor: string } | null>(null);
+  readonly encontro = signal<Encontro | null>(null);
   /** Flocos de neve: posição, tamanho e ritmo variados, calculados uma vez. */
   readonly flocos = Array.from({ length: 22 }, (_, i) => ({
     x: (i * 4.7 + (i % 3) * 3) % 98,

@@ -19,6 +19,7 @@ import { afterAll, beforeEach, expect, it } from "vitest";
 import { lerCsv } from "../../comum/csv";
 import {
   gravarEncontro,
+  gravarFoto,
   gravarSorteio,
   importarParticipantes,
   lerEncontro,
@@ -251,4 +252,17 @@ it("US3 FR-003 o organizador grava os dados do encontro e o visitante os lê, me
   expect(await lerEncontro(org)).toEqual(dados);
   expect(await lerEncontro(visitante)).toEqual(dados);
   await negado(gravarEncontro(visitante, { ...dados, local: "Outro lugar" }));
+});
+
+it("US3 FR-003 a foto da homenagem fica junto do encontro, sobrevive a salvar o encontro de novo e o visitante a lê", async () => {
+  const dados = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
+  await gravarEncontro(org, dados);
+  const foto = "data:image/jpeg;base64," + "A".repeat(500);
+  await gravarFoto(org, foto, "Com saudade");
+  await gravarEncontro(org, { ...dados, local: "Casa nova" });
+  const lido = await lerEncontro(visitante);
+  expect(lido).toEqual({ ...dados, local: "Casa nova", foto, legenda: "Com saudade" });
+  await gravarFoto(org, null, "");
+  expect(await lerEncontro(visitante)).toEqual({ ...dados, local: "Casa nova" });
+  await negado(gravarFoto(visitante, foto, "Intrusa"));
 });
