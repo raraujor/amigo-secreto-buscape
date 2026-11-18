@@ -7,6 +7,7 @@ import { formatarDataHora } from "../../../../comum/data";
 import { mensagemDeErro } from "../../../../comum/erros";
 import { linkWhatsapp, resumoDeEnvio, rotuloDoStatus, textoDaMensagem } from "../../../../comum/mensagens";
 import { prepararImportacao } from "../../../../comum/planilha";
+import { resultadoEmTexto } from "../../../../comum/resultado";
 import {
   type Encontro,
   type Participante,
@@ -129,6 +130,8 @@ interface LinkDaTela {
         <p class="dica">Só você vê. Some de novo ao recarregar a página.</p>
         <button type="button" (click)="alternarResultado()">
           {{ resultado() ? "Esconder resultado" : "Mostrar resultado (só você vê)" }}</button>
+        <button type="button" class="discreto" (click)="copiarResultado()">Copiar resultado</button>
+        @if (mensagemCopia()) { <p class="visto-msg">{{ mensagemCopia() }}</p> }
         @if (resultado(); as pares) {
           <table>
             <tr><th>Quem</th><th>tirou</th></tr>
@@ -169,6 +172,7 @@ export class Organizador implements OnInit {
   /** O resultado completo só é lido e desenhado depois do toque no botão. */
   readonly resultado = signal<{ participante: string; amigo: string }[] | null>(null);
   readonly resumo = signal({ links: 0, enviadas: 0, abertos: 0 });
+  readonly mensagemCopia = signal("");
   confirmacao = "";
   readonly apagando = signal(false);
   readonly mensagemRecomeco = signal("");
@@ -270,6 +274,22 @@ export class Organizador implements OnInit {
     }
     try {
       this.resultado.set(await lerResultado(db));
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message));
+    }
+  }
+
+  /**
+   * Copia o resultado completo (um par por linha, para colar numa planilha) sem mostrá-lo na
+   * tela. O texto copiado fica na área de transferência até ser trocado: só o organizador vê.
+   */
+  async copiarResultado(): Promise<void> {
+    this.erro.set("");
+    this.mensagemCopia.set("");
+    try {
+      const pares = this.resultado() ?? (await lerResultado(db));
+      await navigator.clipboard.writeText(resultadoEmTexto(pares));
+      this.mensagemCopia.set(`✓ Resultado copiado (${pares.length} pares). Cole numa planilha para conferir.`);
     } catch (e) {
       this.erro.set(mensagemDeErro((e as Error).message));
     }
