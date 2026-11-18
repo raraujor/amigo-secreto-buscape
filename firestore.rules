@@ -11,7 +11,7 @@ service cloud.firestore {
     // UID da conta do organizador (não é segredo). Troque pelo UID impresso por
     // scripts/criar-organizador.ts antes de publicar as regras.
     function ORGANIZADOR_UID() {
-      return 'organizador-de-teste';
+      return '3ZVtxqoyCTZ2NcIZ89hl2aCvOfr2';
     }
 
     function organizador() {
