@@ -8,3 +8,4 @@ Marque com `[x]` depois de conferir no site publicado. Só marcas: não escreva 
 - [ ] Sortear gera 37 links
 - [ ] Abrir 3 links no celular mostra "Link de X" e, depois de "Ver quem eu tirei", "X, você tirou: Y"
 - [ ] Um link com um caractere trocado mostra "Link inválido, fale com o organizador."
+- [ ] O cadastro público de contas no Firebase Auth está desligado (só a conta do organizador existe)

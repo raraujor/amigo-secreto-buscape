@@ -72,6 +72,8 @@ Os testes das regras não precisam de conta: o emulador usa o projeto fictício 
 - Sortear: `gravarSorteio` lê `participantes`, chama `sortear` e `montarLinks`, consulta os `links` existentes e, num único `writeBatch` (37 × 2 + 1 operações, abaixo do limite de 500), apaga os links antigos, grava os novos e `sorteios/atual`. É atômico: ou tudo é gravado ou nada. As regras de quando se pode sortear de novo são da 002.
 - Página do link: `get` de `links/{token}`; mostra "Link de X" e o botão; o nome do amigo só aparece na tela depois do toque. (O documento já chega ao navegador ao abrir; quem abrir as ferramentas do navegador vê o nome. O critério é não mostrar por engano.)
 
+**Fronteiras com outras unidades.** `lerCsv` e `normalizarWhatsapp` são escritos uma vez, aqui, já com separador, BOM, aspas e acentos; a 002 acrescenta as validações (linha incompleta, nome repetido, número curto, Windows-1252, avisos). O teste que grava `abertoEm` com a hora do servidor (T011) existe aqui como prova de que a regra aceita a gravação legítima e recusa as demais; a 005 prova o fluxo da página. A varredura da T014 usa `git ls-files --cached --others --exclude-standard`, que vê arquivos versionados e ainda não commitados, e procura e-mails fora de `exemplo.test`, senhas atribuídas em texto claro, CSV fora de `testes/fixtures/` e `.env*`; nomes reais da família não são detectáveis por máquina, por isso a fixture é inventada e testada (DDD 00). A T015 também confere, à mão, que o cadastro público do Firebase Auth está desligado.
+
 **Limite assumido.** As telas Angular não têm teste automático: o que só a tela mostra (37 linhas na lista, os botões, a publicação) é provado pela verificação manual da T015. Os testes da T013 provam a lógica que as telas chamam (rotas, CSV para a lista).
 
 **Mensagens ao usuário.** "Link inválido, fale com o organizador." (identificador inexistente); "São precisos ao menos 2 participantes para sortear." (`MINIMO_DOIS`); "Usuário ou senha incorretos." (login).
@@ -97,7 +99,7 @@ Os testes das regras não precisam de conta: o emulador usa o projeto fictício 
 
 Na ordem das tarefas:
 
-1. `package.json`, `.gitignore`, `tsconfig.base.json`, `vitest.config.ts`, `envio/README.md`, `testes/repo/repositorio.spec.ts`
+1. `package.json`, `package-lock.json`, `.npmrc` (npm com `legacy-peer-deps=true`, para contornar um erro do npm com workspaces), `.gitignore`, `tsconfig.base.json`, `vitest.config.ts`, `envio/README.md`, `testes/repo/repositorio.spec.ts`
 2. `comum/csv.ts`, `comum/csv.spec.ts`, `comum/whatsapp.ts`, `testes/fixtures/familia-37.csv`
 3. `comum/sorteio.ts`, `comum/sorteio.spec.ts`
 4. `comum/token.ts`, `comum/token.spec.ts`, `comum/links.ts`, `comum/links.spec.ts`

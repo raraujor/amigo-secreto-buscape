@@ -126,6 +126,14 @@ it("US1 NFR-007 outra conta logada não lê nem grava nada", async () => {
   await negado(setDoc(doc(outraConta, "links", "falso"), { participante: "X", amigo: "Y", abertoEm: null }));
 });
 
+it("US1 NFR-007 visitante e outra conta não leem nem gravam em caminho não listado", async () => {
+  await setDoc(doc(org, "qualquer", "coisa"), { segredo: true });
+  await negado(getDoc(doc(visitante, "qualquer", "coisa")));
+  await negado(getDocs(collection(visitante, "qualquer")));
+  await negado(setDoc(doc(visitante, "qualquer", "outra"), { x: 1 }));
+  await negado(getDoc(doc(outraConta, "qualquer", "coisa")));
+});
+
 it("US9 FR-007 com o token de Ana lê só o link de Ana", async () => {
   const token = await prepararLinkDeAna();
   await setDoc(doc(org, "config", "encontro"), { data: "20/12/2026", local: "Casa de teste", valor: "R$ 50" });
