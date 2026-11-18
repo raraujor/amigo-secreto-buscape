@@ -2,7 +2,8 @@ import { Component, OnInit, signal } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { type EstadoDaPaginaDoLink, estadoDaPaginaDoLink } from "../../../../comum/pagina-link";
-import { lerEncontro, lerLink } from "../dados/repositorio";
+import { type EstadoDaSugestao, estadoDaSugestao } from "../../../../comum/sugestao";
+import { lerEncontro, lerLink, lerPresente } from "../dados/repositorio";
 import { db } from "../firebase";
 
 @Component({
@@ -33,6 +34,10 @@ import { db } from "../firebase";
     .botao:active { transform: translateY(.15rem); box-shadow: 0 .15rem 0 #6b1212; }
     .encontro { margin-top: 1.25rem; padding: 1rem; background: #f3ecd9; border-radius: .75rem;
       text-align: left; font-size: .98rem; line-height: 1.7; }
+    .presentes-cartao { margin-top: 1.25rem; padding: 1rem; background: #fdf1f1; border-radius: .75rem;
+      text-align: left; font-size: 1rem; line-height: 1.6; }
+    .presentes { margin: .5rem 0 0; padding-left: 1.25rem; }
+    .presentes li { margin: .35rem 0; word-break: break-word; overflow-wrap: anywhere; }
     .segredo { margin-top: 1.25rem; font-size: .95rem; color: #6b5a47; }
     .erro { color: #9b1c1c; }
     .rodape { margin-top: 1.25rem; color: #e8f5ec; font-size: .95rem; }
@@ -76,6 +81,16 @@ import { db } from "../firebase";
               <p class="resultado">{{ textoAberto().antes }}<span class="amigo">{{ textoAberto().amigo }}</span></p>
               <p class="frase">Capriche no presente e guarde segredo até o grande dia.<br />
                 Que o Natal da família seja cheio de amor e alegria! ✨</p>
+              <div class="presentes-cartao">
+                <strong>🎁 Sugestão de presente</strong>
+                @switch (sugestao().tipo) {
+                  @case ("lista") {
+                    <ul class="presentes">@for (item of itensDaSugestao(); track $index) { <li>{{ item }}</li> }</ul>
+                  }
+                  @case ("aviso") { <p class="frase">{{ textoDaSugestao() }}</p> }
+                  @case ("falha") { <p class="frase erro">{{ textoDaSugestao() }}</p> }
+                }
+              </div>
               @if (encontro(); as e) {
                 <div class="encontro">
                   <strong>🎄 Nosso Natal em Família será:</strong><br />
@@ -95,6 +110,8 @@ export class Link implements OnInit {
   readonly carregando = signal(true);
   readonly estado = signal<EstadoDaPaginaDoLink>({ tipo: "invalido", texto: "" });
   readonly encontro = signal<{ data: string; local: string; valor: string } | null>(null);
+  /** A sugestão de presente de quem a pessoa tirou; só é lida no toque em "Ver quem eu tirei". */
+  readonly sugestao = signal<EstadoDaSugestao>({ tipo: "aviso", texto: "" });
   /** Flocos de neve: posição, tamanho e ritmo variados, calculados uma vez. */
   readonly flocos = Array.from({ length: 22 }, (_, i) => ({
     x: (i * 4.7 + (i % 3) * 3) % 98,
@@ -127,8 +144,32 @@ export class Link implements OnInit {
     return corte < 0 ? { antes: texto, amigo: "" } : { antes: texto.slice(0, corte + 1), amigo: texto.slice(corte + 2) };
   }
 
+  /** Os itens da sugestão, quando ela é uma lista. */
+  itensDaSugestao(): string[] {
+    const s = this.sugestao();
+    return s.tipo === "lista" ? s.itens : [];
+  }
+
+  /** O texto do aviso ou da falha da sugestão. */
+  textoDaSugestao(): string {
+    const s = this.sugestao();
+    return s.tipo === "lista" ? "" : s.texto;
+  }
+
+  /** Lê a lista de quem a pessoa tirou pelo token do link. A falha nunca esconde o nome do amigo. */
+  private async carregarSugestao(): Promise<void> {
+    if (!this.link) return;
+    const nome = this.link.amigo;
+    try {
+      this.sugestao.set(estadoDaSugestao({ nome, itens: await lerPresente(db, this.token), falhou: false }));
+    } catch {
+      this.sugestao.set(estadoDaSugestao({ nome, itens: null, falhou: true }));
+    }
+  }
+
   async revelar(): Promise<void> {
     this.estado.set(estadoDaPaginaDoLink(this.link, true));
+    await this.carregarSugestao();
     this.encontro.set(await lerEncontro(db).catch(() => null));
     // O resultado aparece mesmo que o registro da abertura falhe (FR-011).
     await updateDoc(doc(db, "links", this.token), { abertoEm: serverTimestamp() }).catch(() => undefined);

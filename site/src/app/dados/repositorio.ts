@@ -19,6 +19,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import type { LinhaParticipante } from "../../../../comum/csv";
+import { chaveDaLista, lerLista } from "../../../../comum/lista";
 import { montarLinks } from "../../../../comum/links";
 import { sortear } from "../../../../comum/sorteio";
 import { type StatusDaMensagem, gerarMensagens } from "../../../../comum/mensagens";
@@ -49,11 +50,16 @@ export async function envioIniciado(db: Firestore): Promise<boolean> {
   }
 }
 
-/** Marca para apagar, num lote, o sorteio atual e tudo o que depende dele (links e mensagens). */
+/** Marca para apagar, num lote, o sorteio atual e tudo o que depende dele (links, mensagens e presentes; nunca as listas). */
 async function apagarSorteio(db: Firestore, lote: ReturnType<typeof writeBatch>): Promise<void> {
-  const [links, mensagens] = await Promise.all([getDocs(collection(db, "links")), getDocs(collection(db, "mensagens"))]);
+  const [links, mensagens, presentes] = await Promise.all([
+    getDocs(collection(db, "links")),
+    getDocs(collection(db, "mensagens")),
+    getDocs(collection(db, "presentes")),
+  ]);
   for (const d of links.docs) lote.delete(d.ref);
   for (const d of mensagens.docs) lote.delete(d.ref);
+  for (const d of presentes.docs) lote.delete(d.ref);
   lote.delete(doc(db, "sorteios", "atual"));
 }
 
@@ -96,7 +102,7 @@ export async function gravarSorteio(
     gerarToken = gerarTokenPadrao,
     baseUrl = BASE_PADRAO,
   }: { sortearFn?: typeof sortear; gerarToken?: () => string; baseUrl?: string } = {},
-): Promise<{ sorteioId: string; tokens: Map<string, string> }> {
+): Promise<{ sorteioId: string; tokens: Map<string, string>; presentesOk: boolean }> {
   if (await envioIniciado(db)) throw new Error("ENVIO_INICIADO");
   const participantes = await lerParticipantes(db);
   const pares = sortearFn(participantes.map((p) => p.id));
@@ -110,13 +116,21 @@ export async function gravarSorteio(
   for (const d of mensagensAntigas.docs) lote.delete(d.ref);
   const antigos = await getDocs(collection(db, "links"));
   for (const antigo of antigos.docs) lote.delete(antigo.ref);
+  for (const antigo of (await getDocs(collection(db, "presentes"))).docs) lote.delete(antigo.ref);
   for (const { token, ...link } of links) lote.set(doc(db, "links", token), link);
   for (const { participanteId, ...resto } of mensagens)
     lote.set(doc(db, "mensagens", participanteId), { ...resto, atualizadoEm: serverTimestamp() });
   lote.set(doc(db, "sorteios", "atual"), { id: sorteioId, criadoEm: serverTimestamp(), enviosIniciados: false });
   await lote.commit();
 
-  return { sorteioId, tokens };
+  // Os presentes (D-005) são refeitos à parte, em commits pequenos: os links já valem se falhar.
+  let presentesOk = true;
+  try {
+    await sincronizarPresentes(db);
+  } catch {
+    presentesOk = false;
+  }
+  return { sorteioId, tokens, presentesOk };
 }
 
 /** Lê um link pelo token (visitante). Devolve null se não existir. */
@@ -264,4 +278,87 @@ export async function desfazerEnvio(db: Firestore, participanteId: string): Prom
   const atual = await getDoc(ref);
   if (!atual.exists() || (atual.data() as { status?: unknown }).status !== "enviada") throw new Error("SORTEIO_MUDOU");
   await updateDoc(ref, { status: "pendente", atualizadoEm: serverTimestamp() });
+}
+
+/**
+ * Lê a lista de presentes de quem a pessoa tirou, pelo token do link dela. Devolve os itens, ou
+ * null se não há documento (sem lista). Erro de leitura é propagado: quem chama decide mostrar a
+ * falha, nunca o aviso de "sem lista".
+ */
+export async function lerPresente(db: Firestore, token: string): Promise<string[] | null> {
+  const presente = await getDoc(doc(db, "presentes", token));
+  if (!presente.exists()) return null;
+  const { itens } = presente.data() as { itens?: string[] };
+  return Array.isArray(itens) ? itens : null;
+}
+
+/**
+ * Grava a lista de presentes de uma pessoa, ligada ao nome dela (FR-004), e o documento `presentes`
+ * de quem a tirou, num commit só (D-005). Texto sem itens apaga os dois. Fora do limite, recusa sem
+ * gravar, com o código do erro (e a linha, no item longo). Sem sorteio, grava só a lista. Lê os
+ * links do servidor: sem conseguir, falha antes de gravar qualquer coisa.
+ */
+export async function gravarLista(db: Firestore, nome: string, texto: string): Promise<void> {
+  const lida = lerLista(texto);
+  if (!lida.ok) throw Object.assign(new Error(lida.codigo), { linha: lida.codigo === "LISTA_ITEM_LONGO" ? lida.linha : undefined });
+  const id = chaveDaLista(nome);
+  const links = await getDocsFromServer(collection(db, "links"));
+  const quemTirou = links.docs.find((d) => {
+    const { amigo } = d.data() as { amigo?: string };
+    return typeof amigo === "string" && chaveDaLista(amigo) === id;
+  });
+  const lote = writeBatch(db);
+  if (lida.itens.length === 0) {
+    lote.delete(doc(db, "listas", id));
+    if (quemTirou) lote.delete(doc(db, "presentes", quemTirou.id));
+  } else {
+    lote.set(doc(db, "listas", id), { nome: nome.trim(), itens: lida.itens, atualizadoEm: Timestamp.now() });
+    if (quemTirou) lote.set(doc(db, "presentes", quemTirou.id), { itens: lida.itens, atualizadoEm: Timestamp.now() });
+  }
+  await lote.commit();
+}
+
+/** As listas guardadas: chave do nome → itens. Só o organizador lê. */
+export async function lerListas(db: Firestore): Promise<Map<string, string[]>> {
+  const todas = await getDocs(collection(db, "listas"));
+  return new Map(
+    todas.docs.map((d) => {
+      const { itens } = d.data() as { itens?: string[] };
+      return [d.id, Array.isArray(itens) ? itens : []] as const;
+    }),
+  );
+}
+
+/** Operações por commit da sincronização dos presentes (o limite do Firestore é 500). */
+const OPERACOES_POR_COMMIT = 200;
+
+/**
+ * Refaz os documentos `presentes` a partir dos links e das listas (D-005): cria ou corrige o que
+ * falta ou mudou e apaga o que não tem mais link ou lista. É idempotente, só mexe em `presentes` e
+ * grava em commits de até 200 operações.
+ */
+export async function sincronizarPresentes(db: Firestore): Promise<void> {
+  const [links, listas, presentes] = await Promise.all([
+    getDocs(collection(db, "links")),
+    lerListas(db),
+    getDocs(collection(db, "presentes")),
+  ]);
+  const desejados = new Map<string, string[]>();
+  for (const l of links.docs) {
+    const { amigo } = l.data() as { amigo?: string };
+    const itens = typeof amigo === "string" ? listas.get(chaveDaLista(amigo)) : undefined;
+    if (itens && itens.length > 0) desejados.set(l.id, itens);
+  }
+  const operacoes: ((lote: ReturnType<typeof writeBatch>) => void)[] = [];
+  for (const [token, itens] of desejados) {
+    const atual = presentes.docs.find((d) => d.id === token)?.data() as { itens?: string[] } | undefined;
+    if (!atual || JSON.stringify(atual.itens) !== JSON.stringify(itens))
+      operacoes.push((lote) => lote.set(doc(db, "presentes", token), { itens, atualizadoEm: Timestamp.now() }));
+  }
+  for (const d of presentes.docs) if (!desejados.has(d.id)) operacoes.push((lote) => lote.delete(d.ref));
+  for (let i = 0; i < operacoes.length; i += OPERACOES_POR_COMMIT) {
+    const lote = writeBatch(db);
+    for (const op of operacoes.slice(i, i + OPERACOES_POR_COMMIT)) op(lote);
+    await lote.commit();
+  }
 }

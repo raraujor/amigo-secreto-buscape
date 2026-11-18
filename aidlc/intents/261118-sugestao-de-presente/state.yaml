@@ -36,3 +36,7 @@ units:
         plan_hash: 73223e1ba37111417d0b5b1e43b1d7b54bdb274d1600502e109d3e3a06f1bbf4
         approved_by: Rodrigo
         approved_at: 2026-11-18T22:26:02.212Z
+      "3.2":
+        status: in-progress
+        commit_base: a5539538941001e57b1de94561c230d7e45de1e5
+        started: 2026-11-18T22:35:49.660Z

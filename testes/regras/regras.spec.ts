@@ -16,25 +16,32 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { lerCsv } from "../../comum/csv";
 import { estadoDaPaginaDoLink } from "../../comum/pagina-link";
+import { chaveDaLista, resumoDeListas } from "../../comum/lista";
+import { estadoDaSugestao } from "../../comum/sugestao";
 import {
   gravarEncontro,
+  gravarLista,
   gravarSorteio,
   importarParticipantes,
   desfazerEnvio,
   lerEncontro,
   lerLink,
   lerLinks,
+  lerListas,
   lerMensagens,
   lerParticipantes,
+  lerPresente,
   lerResultado,
   lerSorteioAtual,
   marcarEnviada,
   recomecar,
   resumoDoSorteio,
+  sincronizarPresentes,
 } from "../../site/src/app/dados/repositorio";
 
 const PROJETO = "demo-amigo-secreto";
@@ -676,4 +683,407 @@ it("US1 NFR-007 a mensagem gravada não pode ser lida pela chave pública, nem p
   await negado(getDocs(collection(visitante, "mensagens")));
   // O link, esse sim, pode ser lido por quem tem o token, mas não carrega o texto da mensagem.
   expect(JSON.stringify((await getDoc(doc(visitante, "links", gravada.token))).data())).not.toContain("Oi ");
+});
+
+// ---- Sugestão de presente (unit/001 da intenção 261118) ----
+
+async function semearListaDeBruno(): Promise<void> {
+  await setDoc(doc(org, "listas", "n_bruno"), { nome: "Bruno", itens: ["Camisa tamanho M"], atualizadoEm: Timestamp.now() });
+  await setDoc(doc(org, "presentes", "token-ana"), { itens: ["Camisa tamanho M"], atualizadoEm: Timestamp.now() });
+}
+
+it("US5 NFR-003 visitante lê o presente do próprio token e não lista presentes nem listas nem lê listas", async () => {
+  await semearListaDeBruno();
+  const lido = await getDoc(doc(visitante, "presentes", "token-ana"));
+  expect(lido.exists()).toBe(true);
+  expect((lido.data() as { itens: string[] }).itens).toEqual(["Camisa tamanho M"]);
+  for (const conta of [visitante, outraConta]) {
+    await negado(getDocs(collection(conta, "presentes")));
+    await negado(getDocs(collection(conta, "listas")));
+    await negado(getDoc(doc(conta, "listas", "n_bruno")));
+  }
+});
+
+it("US1 NFR-004 visitante e outra conta não gravam nem apagam lista nem presente", async () => {
+  for (const conta of [visitante, outraConta]) {
+    await negado(setDoc(doc(conta, "listas", "n_ana"), { nome: "Ana", itens: ["x"] }));
+    await negado(setDoc(doc(conta, "presentes", "token-novo"), { itens: ["x"] }));
+    await negado(deleteDoc(doc(conta, "listas", "n_bruno")));
+    await negado(deleteDoc(doc(conta, "presentes", "token-ana")));
+  }
+});
+
+it("US2 NFR-004 visitante e outra conta não mudam nem apagam uma lista salva", async () => {
+  await semearListaDeBruno();
+  for (const conta of [visitante, outraConta]) {
+    await negado(updateDoc(doc(conta, "listas", "n_bruno"), { itens: ["Outra coisa"] }));
+    await negado(updateDoc(doc(conta, "presentes", "token-ana"), { itens: ["Outra coisa"] }));
+  }
+  expect(((await getDoc(doc(org, "listas", "n_bruno"))).data() as { itens: string[] }).itens).toEqual(["Camisa tamanho M"]);
+  expect(((await getDoc(doc(org, "presentes", "token-ana"))).data() as { itens: string[] }).itens).toEqual(["Camisa tamanho M"]);
+});
+
+it("US5 NFR-003 sem token e sem login nenhuma lista é obtida", async () => {
+  await semearListaDeBruno();
+  await negado(getDocs(collection(visitante, "presentes")));
+  await negado(getDocs(collection(visitante, "listas")));
+  await negado(getDoc(doc(visitante, "listas", "n_bruno")));
+  expect((await getDoc(doc(visitante, "presentes", "token-que-ninguem-tem"))).exists()).toBe(false);
+});
+
+it("US1 NFR-004 as regras antigas continuam valendo: o visitante só grava a abertura do próprio link e lê o link pelo token", async () => {
+  const token = await prepararLinkDeAna();
+  expect((await getDoc(doc(visitante, "links", token))).exists()).toBe(true);
+  await negado(getDocs(collection(visitante, "links")));
+  await negado(updateDoc(doc(visitante, "links", token), { abertoEm: serverTimestamp(), amigo: "Outra pessoa" }));
+  await updateDoc(doc(visitante, "links", token), { abertoEm: serverTimestamp() });
+  await negado(updateDoc(doc(visitante, "links", token), { abertoEm: serverTimestamp() }));
+  await negado(getDocs(collection(visitante, "participantes")));
+  await negado(getDocs(collection(visitante, "mensagens")));
+  await negado(getDoc(doc(visitante, "sorteios", "atual")));
+});
+
+it("US5 FR-005 o presente gravado pelo organizador é lido pelo token", async () => {
+  await semearListaDeBruno();
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["Camisa tamanho M"]);
+});
+
+it("US6 FR-006 sem lista o presente não existe", async () => {
+  expect(await lerPresente(visitante, "token-ana")).toBeNull();
+});
+
+it("US6 FR-006 três leituras do mesmo link sem lista mostram o aviso nas três vezes", async () => {
+  for (let i = 0; i < 3; i++) {
+    const itens = await lerPresente(visitante, "token-ana");
+    expect(estadoDaSugestao({ nome: "Bruno", itens, falhou: false }).tipo).toBe("aviso");
+  }
+});
+
+it("US7 FR-008 erro de leitura é propagado e não vira sem lista", async () => {
+  await semearListaDeBruno();
+  await disableNetwork(visitante);
+  await expect(lerPresente(visitante, "token-ana")).rejects.toThrow();
+});
+
+it("US5 FR-007 token inexistente não devolve lista", async () => {
+  await semearListaDeBruno();
+  expect(await lerPresente(visitante, "token-que-ninguem-tem")).toBeNull();
+});
+
+/** Um sorteio de três pessoas em ciclo: Ana tirou Bruno, Bruno tirou Carla e Carla tirou Ana. */
+async function prepararCicloDeTres(): Promise<void> {
+  const base = { sorteioId: "s1", abertoEm: null };
+  await setDoc(doc(org, "links", "token-ana"), { ...base, participanteId: "a", participante: "Ana", amigo: "Bruno" });
+  await setDoc(doc(org, "links", "token-bruno"), { ...base, participanteId: "b", participante: "Bruno", amigo: "Carla" });
+  await setDoc(doc(org, "links", "token-carla"), { ...base, participanteId: "c", participante: "Carla", amigo: "Ana" });
+}
+
+async function documentosDe(colecao: string): Promise<string[]> {
+  return (await getDocs(collection(org, colecao))).docs.map((d) => d.id).sort();
+}
+
+it("US1 FR-001 salvar a lista grava a lista e o presente de quem tirou a pessoa", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "Camisa tamanho M\nLivro da coleção Clássicos");
+  const lista = (await getDoc(doc(org, "listas", chaveDaLista("Bruno")))).data() as { nome: string; itens: string[] };
+  expect(lista.itens).toEqual(["Camisa tamanho M", "Livro da coleção Clássicos"]);
+  expect(lista.nome).toBe("Bruno");
+  expect(await documentosDe("presentes")).toEqual(["token-ana"]);
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["Camisa tamanho M", "Livro da coleção Clássicos"]);
+});
+
+it("US1 FR-001 lista fora do limite não grava nada", async () => {
+  await prepararCicloDeTres();
+  const vinteEUm = Array.from({ length: 21 }, (_, i) => `item ${i}`).join("\n");
+  await expect(gravarLista(org, "Bruno", vinteEUm)).rejects.toThrow("LISTA_ITENS_DEMAIS");
+  await expect(gravarLista(org, "Bruno", `Camisa\n${"a".repeat(201)}`)).rejects.toMatchObject({
+    message: "LISTA_ITEM_LONGO",
+    linha: 2,
+  });
+  expect(await documentosDe("listas")).toEqual([]);
+  expect(await documentosDe("presentes")).toEqual([]);
+});
+
+it("US1 FR-001 sem sorteio a lista é guardada sem presente", async () => {
+  await gravarLista(org, "Bruno", "Camisa");
+  expect(await documentosDe("listas")).toEqual([chaveDaLista("Bruno")]);
+  expect(await documentosDe("presentes")).toEqual([]);
+});
+
+it("US2 FR-002 salvar de novo substitui e não muda a lista de outra pessoa", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "Camisa");
+  await gravarLista(org, "Carla", "Bolsa");
+  await gravarLista(org, "Bruno", "Sapato\nMeias");
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["Sapato", "Meias"]);
+  expect(await lerPresente(visitante, "token-bruno")).toEqual(["Bolsa"]);
+  const listas = await lerListas(org);
+  expect(listas.get(chaveDaLista("Bruno"))).toEqual(["Sapato", "Meias"]);
+  expect(listas.get(chaveDaLista("Carla"))).toEqual(["Bolsa"]);
+});
+
+it("US2 FR-002 texto vazio ou só linhas em branco apaga a lista e o presente", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "Camisa");
+  await gravarLista(org, "Bruno", "  \n\n ");
+  expect(await documentosDe("listas")).toEqual([]);
+  expect(await documentosDe("presentes")).toEqual([]);
+  expect(await lerPresente(visitante, "token-ana")).toBeNull();
+});
+
+it("US2 FR-002 mudar a lista com o link já aberto mostra a lista nova na próxima leitura", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "Camisa");
+  await updateDoc(doc(visitante, "links", "token-ana"), { abertoEm: serverTimestamp() });
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["Camisa"]);
+  await gravarLista(org, "Bruno", "Camisa\nTênis");
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["Camisa", "Tênis"]);
+});
+
+it("US2 FR-002 duas gravações seguidas valem pela última", async () => {
+  await prepararCicloDeTres();
+  await Promise.all([gravarLista(org, "Bruno", "Primeira"), gravarLista(org, "Bruno", "Segunda")]);
+  const lista = ((await getDoc(doc(org, "listas", chaveDaLista("Bruno")))).data() as { itens: string[] }).itens;
+  expect(lista).toHaveLength(1);
+  expect(await lerPresente(visitante, "token-ana")).toEqual(lista);
+});
+
+it("US2 FR-002 falha ao salvar sem rede não grava nada", async () => {
+  await prepararCicloDeTres();
+  await disableNetwork(org);
+  await expect(gravarLista(org, "Bruno", "Camisa")).rejects.toThrow();
+  await enableNetwork(org);
+  expect(await documentosDe("listas")).toEqual([]);
+  expect(await documentosDe("presentes")).toEqual([]);
+});
+
+it("US3 FR-003 as listas guardadas alimentam o indicador", async () => {
+  await gravarLista(org, "Bruno", "Camisa");
+  await gravarLista(org, "Carla", "Bolsa");
+  const guardadas = new Set((await lerListas(org)).keys());
+  const resumo = resumoDeListas([{ nome: "Ana" }, { nome: "Bruno" }, { nome: "Carla" }], guardadas);
+  expect(resumo.map((p) => [p.nome, p.comLista])).toEqual([
+    ["Ana", false],
+    ["Bruno", true],
+    ["Carla", true],
+  ]);
+});
+
+it("US5 FR-007 o token de Ana lê só a lista de quem Ana tirou num sorteio de três pessoas em ciclo", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "lista do Bruno");
+  await gravarLista(org, "Carla", "lista da Carla");
+  await gravarLista(org, "Ana", "lista da Ana");
+  expect(await lerPresente(visitante, "token-ana")).toEqual(["lista do Bruno"]);
+  expect(await lerPresente(visitante, "token-bruno")).toEqual(["lista da Carla"]);
+  expect(await lerPresente(visitante, "token-carla")).toEqual(["lista da Ana"]);
+});
+
+it("US5 NFR-003 o presente não traz nome de ninguém", async () => {
+  await prepararCicloDeTres();
+  await gravarLista(org, "Bruno", "Camisa");
+  const presente = (await getDoc(doc(org, "presentes", "token-ana"))).data() as Record<string, unknown>;
+  expect(Object.keys(presente).sort()).toEqual(["atualizadoEm", "itens"]);
+});
+
+it("US5 FR-005 salvar a lista depois faz o mesmo link mostrar a lista", async () => {
+  await prepararCicloDeTres();
+  expect(estadoDaSugestao({ nome: "Bruno", itens: await lerPresente(visitante, "token-ana"), falhou: false }).tipo).toBe("aviso");
+  await gravarLista(org, "Bruno", "Camisa");
+  const estado = estadoDaSugestao({ nome: "Bruno", itens: await lerPresente(visitante, "token-ana"), falhou: false });
+  expect(estado).toEqual({ tipo: "lista", itens: ["Camisa"] });
+});
+
+/** Os documentos do sorteio sem os campos de uso normal (abertura do link e status das mensagens). */
+async function fotoDoSorteio(): Promise<string> {
+  const operacionais = new Set(["abertoEm", "status", "atualizadoEm"]);
+  const foto: Record<string, Record<string, unknown>> = {};
+  for (const colecao of COLECOES) {
+    for (const d of (await getDocs(collection(org, colecao))).docs) {
+      const dados = Object.fromEntries(Object.entries(d.data()).filter(([k]) => !operacionais.has(k)));
+      foto[`${colecao}/${d.id}`] = dados;
+    }
+  }
+  return JSON.stringify(foto, Object.keys(foto).sort());
+}
+
+it("US1 NFR-001 salvar lista não altera os documentos do sorteio", async () => {
+  await importarParticipantes(org, fixture);
+  await gravarSorteio(org);
+  await gravarEncontro(org, { data: "24/12/2026", local: "Casa", valor: "R$ 50" });
+  const antes = await fotoDoSorteio();
+  expect((antes.match(/"participantes\//g) ?? []).length).toBe(37);
+  const participantes = await lerParticipantes(org);
+  await gravarLista(org, participantes[0].nome, "Camisa\nLivro");
+  await gravarLista(org, participantes[1].nome, "Bolsa");
+  await gravarLista(org, participantes[0].nome, "");
+  expect(await fotoDoSorteio()).toBe(antes);
+});
+
+it("US5 NFR-001 ler o presente não altera os documentos do sorteio", async () => {
+  await importarParticipantes(org, fixture);
+  await gravarSorteio(org);
+  const participantes = await lerParticipantes(org);
+  const links = await lerLinks(org);
+  await gravarLista(org, participantes[2].nome, "Camisa");
+  const antes = await fotoDoSorteio();
+  for (const l of links) await lerPresente(visitante, l.token);
+  expect(await fotoDoSorteio()).toBe(antes);
+});
+
+it("US5 FR-005 link enviado antes da funcionalidade continua funcionando", async () => {
+  await setDoc(doc(org, "links", "token-antigo"), {
+    participanteId: "a",
+    participante: "Ana",
+    amigo: "Bruno",
+    sorteioId: "s1",
+    abertoEm: null,
+  });
+  expect(await lerLink(visitante, "token-antigo")).toEqual({ participante: "Ana", amigo: "Bruno" });
+  await gravarLista(org, "Bruno", "Camisa");
+  expect(await lerLink(visitante, "token-antigo")).toEqual({ participante: "Ana", amigo: "Bruno" });
+  expect(await lerPresente(visitante, "token-antigo")).toEqual(["Camisa"]);
+});
+
+// ---- US4: as listas sobrevivem ao sorteio (FR-004) ----
+
+const TRES = [
+  { nome: "Ana", whatsapp: "5500910000001", responsavel: null },
+  { nome: "Bruno", whatsapp: "5500910000002", responsavel: null },
+  { nome: "Carla", whatsapp: "5500910000003", responsavel: null },
+];
+
+/** Sorteio em que cada pessoa tira a seguinte da lista (a ordem da planilha), em ciclo. */
+const ciclo = (deslocamento: number) => (ids: readonly string[]) =>
+  new Map(ids.map((id, i) => [id, ids[(i + deslocamento) % ids.length]] as const));
+
+async function tokensPorNome(): Promise<Record<string, string>> {
+  return Object.fromEntries((await lerLinks(org)).map((l) => [l.participante, l.token]));
+}
+
+it("US4 FR-004 recomeçar do zero mantém a lista e apaga os presentes", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarLista(org, "Bruno", "Camisa");
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  expect(await documentosDe("presentes")).toHaveLength(1);
+  await recomecar(org);
+  expect(await documentosDe("presentes")).toEqual([]);
+  expect(await documentosDe("listas")).toEqual([chaveDaLista("Bruno")]);
+  expect(await tamanho(org, "participantes")).toBe(3);
+});
+
+it("US4 FR-004 novo sorteio liga a lista de Carla ao link de Ana", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarLista(org, "Bruno", "lista do Bruno");
+  await gravarLista(org, "Carla", "lista da Carla");
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  const antes = await tokensPorNome();
+  expect(await lerPresente(visitante, antes.Ana)).toEqual(["lista do Bruno"]);
+  await gravarSorteio(org, { sortearFn: ciclo(2) });
+  const depois = await tokensPorNome();
+  expect(await lerPresente(visitante, depois.Ana)).toEqual(["lista da Carla"]);
+  expect(await lerPresente(visitante, antes.Ana)).toBeNull();
+});
+
+it("US4 FR-004 importar planilha com nome equivalente mantém a lista", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarLista(org, "Bruno", "Camisa");
+  await importarParticipantes(org, [TRES[0], { ...TRES[1], nome: "  BRUNO " }, TRES[2]]);
+  const guardadas = new Set((await lerListas(org)).keys());
+  const resumo = resumoDeListas(await lerParticipantes(org), guardadas);
+  expect(resumo.map((p) => p.comLista)).toEqual([false, true, false]);
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  expect(await lerPresente(visitante, (await tokensPorNome()).Ana)).toEqual(["Camisa"]);
+});
+
+it("US4 FR-004 nome fora da planilha fica guardado sem aparecer", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarLista(org, "Zé", "Bicicleta");
+  await importarParticipantes(org, TRES);
+  const guardadas = new Set((await lerListas(org)).keys());
+  expect(guardadas.has(chaveDaLista("Zé"))).toBe(true);
+  expect(resumoDeListas(await lerParticipantes(org), guardadas).some((p) => p.comLista)).toBe(false);
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  expect(await documentosDe("presentes")).toEqual([]);
+});
+
+it("US4 FR-004 grafia mudada deixa a pessoa sem lista", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarLista(org, "Bruno", "Camisa");
+  await importarParticipantes(org, [TRES[0], { ...TRES[1], nome: "Brúno" }, TRES[2]]);
+  const guardadas = new Set((await lerListas(org)).keys());
+  expect(guardadas.has(chaveDaLista("Bruno"))).toBe(true);
+  expect(resumoDeListas(await lerParticipantes(org), guardadas).map((p) => p.comLista)).toEqual([false, false, false]);
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  expect(await documentosDe("presentes")).toEqual([]);
+});
+
+it("US4 FR-004 sortear com 80 pessoas e listas cabe no limite de 500 operações", async () => {
+  const oitenta = Array.from({ length: 80 }, (_, i) => ({
+    nome: `Pessoa ${i + 1}`,
+    whatsapp: `5500910${String(i).padStart(6, "0")}`,
+    responsavel: null,
+  }));
+  await importarParticipantes(org, oitenta);
+  for (const p of oitenta) await gravarLista(org, p.nome, `presente de ${p.nome}`);
+  const resultado = await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  expect(resultado.presentesOk).toBe(true);
+  expect(await tamanho(org, "presentes")).toBe(80);
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  expect(await tamanho(org, "presentes")).toBe(80);
+  expect(await tamanho(org, "links")).toBe(80);
+  await importarParticipantes(org, oitenta);
+  expect(await tamanho(org, "presentes")).toBe(0);
+});
+
+it("US4 FR-004 sincronizar refaz os presentes que faltam e apaga os que sobram", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  await gravarLista(org, "Bruno", "Camisa");
+  const tokens = await tokensPorNome();
+  await deleteDoc(doc(org, "presentes", tokens.Ana));
+  await setDoc(doc(org, "presentes", "token-velho"), { itens: ["x"], atualizadoEm: Timestamp.now() });
+  await sincronizarPresentes(org);
+  expect(await documentosDe("presentes")).toEqual([tokens.Ana]);
+  expect(await lerPresente(visitante, tokens.Ana)).toEqual(["Camisa"]);
+  await sincronizarPresentes(org);
+  expect(await documentosDe("presentes")).toEqual([tokens.Ana]);
+});
+
+it("US4 FR-004 sincronizar grava em lotes de no máximo 200 operações", async () => {
+  const oitenta = Array.from({ length: 80 }, (_, i) => ({
+    nome: `Pessoa ${i + 1}`,
+    whatsapp: `5500910${String(i).padStart(6, "0")}`,
+    responsavel: null,
+  }));
+  await importarParticipantes(org, oitenta);
+  await gravarSorteio(org, { baseUrl: BASE_DAS_MENSAGENS });
+  for (const p of oitenta) await gravarLista(org, p.nome, `presente de ${p.nome}`);
+  // 450 documentos que sobram, mais do que cabe num commit de 200 operações.
+  for (let inicio = 0; inicio < 450; inicio += 150) {
+    const lote = writeBatch(org);
+    for (let i = inicio; i < inicio + 150; i++) lote.set(doc(org, "presentes", `velho-${i}`), { itens: ["x"] });
+    await lote.commit();
+  }
+  expect(await tamanho(org, "presentes")).toBe(530);
+  await sincronizarPresentes(org);
+  expect(await tamanho(org, "presentes")).toBe(80);
+});
+
+it("US4 FR-004 recomeçar sortear de novo e importar continuam apagando sorteio links e mensagens", async () => {
+  await importarParticipantes(org, TRES);
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  expect(await tamanho(org, "links")).toBe(3);
+  expect(await tamanho(org, "mensagens")).toBe(3);
+  await gravarSorteio(org, { sortearFn: ciclo(2) });
+  expect(await tamanho(org, "links")).toBe(3);
+  await recomecar(org);
+  expect(await tamanho(org, "links")).toBe(0);
+  expect(await tamanho(org, "mensagens")).toBe(0);
+  expect(await lerSorteioAtual(org)).toBeNull();
+  await gravarSorteio(org, { sortearFn: ciclo(1) });
+  await importarParticipantes(org, TRES);
+  expect(await tamanho(org, "links")).toBe(0);
+  expect(await tamanho(org, "mensagens")).toBe(0);
+  expect(await lerSorteioAtual(org)).toBeNull();
 });

@@ -27,6 +27,14 @@ service cloud.firestore {
             && request.resource.data.abertoEm == request.time);
     }
 
+    // Lista de presentes que o link de uma pessoa lê (D-005): o id do documento é o token de quem lê,
+    // então quem sabe o token alcança só a lista de quem aquela pessoa tirou, e ninguém lista nada.
+    // As listas em si (listas/{nome}) ficam na regra final, só do organizador.
+    match /presentes/{token} {
+      allow get: if true;
+      allow list, write: if organizador();
+    }
+
     match /config/encontro {
       allow get: if true;
       allow list, write: if organizador();

@@ -34,7 +34,7 @@ function listar(itens: string[]): string {
 }
 
 /** Compara nomes ignorando maiúsculas e espaços extras, mas não os acentos ("José" ≠ "Jose"). */
-function chaveDoNome(nome: string): string {
+export function chaveDoNome(nome: string): string {
   return nome.trim().replace(/\s+/g, " ").toLowerCase();
 }
 

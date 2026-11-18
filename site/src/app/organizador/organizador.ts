@@ -1,10 +1,11 @@
-import { Component, OnInit, signal } from "@angular/core";
+import { Component, OnInit, computed, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { signOut } from "firebase/auth";
 import { confirmouRecomecar } from "../../../../comum/confirmacao";
 import { formatarDataHora } from "../../../../comum/data";
 import { mensagemDeErro } from "../../../../comum/erros";
+import { chaveDaLista, resumoDeListas, textoDaLista } from "../../../../comum/lista";
 import { linkWhatsapp, resumoDeEnvio, rotuloDoStatus, textoDaMensagem } from "../../../../comum/mensagens";
 import { prepararImportacao } from "../../../../comum/planilha";
 import { resultadoEmTexto } from "../../../../comum/resultado";
@@ -13,10 +14,12 @@ import {
   type Participante,
   desfazerEnvio,
   gravarEncontro,
+  gravarLista,
   gravarSorteio,
   importarParticipantes,
   lerEncontro,
   lerLinks,
+  lerListas,
   lerMensagens,
   lerParticipantes,
   lerResultado,
@@ -24,6 +27,7 @@ import {
   marcarEnviada,
   recomecar,
   resumoDoSorteio,
+  sincronizarPresentes,
 } from "../dados/repositorio";
 import { auth, db } from "../firebase";
 
@@ -80,9 +84,30 @@ interface LinkDaTela {
     <section class="cartao">
       <h2>2. Participantes ({{ participantes().length }})</h2>
       <table>
-        <tr><th>Nome</th><th>WhatsApp</th><th>Responsável</th></tr>
-        @for (p of participantes(); track p.id) {
-          <tr><td>{{ p.nome }}</td><td>{{ p.whatsapp }}</td><td>{{ p.responsavel }}</td></tr>
+        <tr><th>Nome</th><th>WhatsApp</th><th>Responsável</th><th>Lista de presentes</th></tr>
+        @for (linha of linhasDaTabela(); track linha.p.id) {
+          <tr>
+            <td>{{ linha.p.nome }}</td><td>{{ linha.p.whatsapp }}</td><td>{{ linha.p.responsavel }}</td>
+            <td>
+              <span [class.visto]="linha.comLista">{{ linha.comLista ? "com lista" : "sem lista" }}</span>
+              <button type="button" class="discreto" (click)="abrirLista(linha.p)">
+                {{ editando() === linha.p.id ? "Fechar" : "Lista de presentes" }}</button>
+            </td>
+          </tr>
+          @if (editando() === linha.p.id) {
+            <tr>
+              <td colspan="4">
+                <label>Lista de presentes de {{ linha.p.nome }}
+                  <textarea name="lista" rows="6" [(ngModel)]="textoEdicao"
+                    placeholder="Um item por linha"></textarea></label>
+                <p class="dica">Até 20 itens, de até 200 caracteres cada. Texto vazio apaga a lista.
+                  Aparece no link de quem tirou {{ linha.p.nome }}, quando a pessoa toca em Ver quem eu tirei.</p>
+                <button type="button" (click)="salvarLista(linha.p)">Salvar lista</button>
+                <button type="button" class="discreto" (click)="fecharLista()">Cancelar</button>
+                <p class="erro">{{ erroLista() }}</p>
+              </td>
+            </tr>
+          }
         }
       </table>
     </section>
@@ -173,6 +198,16 @@ export class Organizador implements OnInit {
   readonly resultado = signal<{ participante: string; amigo: string }[] | null>(null);
   readonly resumo = signal({ links: 0, enviadas: 0, abertos: 0 });
   readonly mensagemCopia = signal("");
+  /** As listas de presentes guardadas: chave do nome → itens. */
+  readonly listas = signal(new Map<string, string[]>());
+  readonly linhasDaTabela = computed(() => {
+    const resumo = resumoDeListas(this.participantes(), new Set(this.listas().keys()));
+    return this.participantes().map((p, i) => ({ p, comLista: resumo[i].comLista }));
+  });
+  /** O participante cuja lista está aberta para edição, o texto da caixa e o erro do salvamento. */
+  readonly editando = signal<string | null>(null);
+  readonly erroLista = signal("");
+  textoEdicao = "";
   confirmacao = "";
   readonly apagando = signal(false);
   readonly mensagemRecomeco = signal("");
@@ -182,6 +217,9 @@ export class Organizador implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.participantes.set(await lerParticipantes(db));
+    // Refaz os presentes que os links leem, caso algum tenha ficado fora de sincronia; falha não impede a tela.
+    await sincronizarPresentes(db).catch(() => undefined);
+    this.listas.set(await lerListas(db));
     await this.carregarLinks();
     const salvo = await lerEncontro(db);
     if (salvo) {
@@ -259,9 +297,11 @@ export class Organizador implements OnInit {
     this.erro.set("");
     if (this.links().length > 0 && !confirm("Sortear de novo invalida os links atuais. Continuar?")) return;
     try {
-      await gravarSorteio(db, { baseUrl: this.base });
+      const { presentesOk } = await gravarSorteio(db, { baseUrl: this.base });
       this.resultado.set(null);
       await this.carregarLinks();
+      if (!presentesOk)
+        this.erro.set("Os links valem, mas as listas de presentes ainda não foram ligadas a eles. Recarregue a página.");
     } catch (e) {
       this.erro.set(mensagemDeErro((e as Error).message, "sortear"));
     }
@@ -292,6 +332,38 @@ export class Organizador implements OnInit {
       this.mensagemCopia.set(`✓ Resultado copiado (${pares.length} pares). Cole numa planilha para conferir.`);
     } catch (e) {
       this.erro.set(mensagemDeErro((e as Error).message));
+    }
+  }
+
+  /** Abre ou fecha a edição da lista de uma pessoa, com a lista atual na caixa de texto. */
+  abrirLista(p: Participante): void {
+    this.erroLista.set("");
+    if (this.editando() === p.id) {
+      this.editando.set(null);
+      return;
+    }
+    this.textoEdicao = textoDaLista(this.listas().get(chaveDaLista(p.nome)) ?? []);
+    this.editando.set(p.id);
+  }
+
+  fecharLista(): void {
+    this.erroLista.set("");
+    this.editando.set(null);
+  }
+
+  /**
+   * Grava a lista da pessoa. Na falha (limite, rede) nada é gravado, a edição continua aberta e o
+   * texto digitado fica na caixa; só no sucesso a edição fecha e o indicador muda.
+   */
+  async salvarLista(p: Participante): Promise<void> {
+    this.erroLista.set("");
+    try {
+      await gravarLista(db, p.nome, this.textoEdicao);
+      this.listas.set(await lerListas(db));
+      this.editando.set(null);
+    } catch (e) {
+      const erro = e as Error & { linha?: number };
+      this.erroLista.set(mensagemDeErro(erro.message, "sortear", erro.linha));
     }
   }
 

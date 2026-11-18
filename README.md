@@ -14,8 +14,9 @@ Sorteio de amigo secreto para a família, sem custo: o organizador importa a lis
 4. Para cada pessoa, toca em **Enviar pelo WhatsApp**: abre a conversa com a mensagem e o link prontos e já marca a mensagem como enviada (há **Desfazer** para quem tocou e não enviou).
 5. Acompanha o status de cada mensagem (pendente, enviada ou com falha) e quem já viu o resultado, e pode ver o resultado completo, atrás de um botão.
 6. Depois que alguma mensagem foi enviada, sortear de novo e importar outra lista ficam bloqueados; para corrigir, há **Recomeçar do zero**, com confirmação digitada.
+7. Escreve a **lista de presentes** de cada pessoa (botão ao lado do nome na lista de participantes: um item por linha, até 20 itens de 200 caracteres) e vê quem já tem lista. As listas ficam ligadas ao nome e continuam guardadas quando o sorteio recomeça.
 
-**Participante:** abre o link recebido, toca em **Ver quem eu tirei** e vê o amigo secreto e os dados do encontro. O link tem um identificador aleatório de 128 bits e só mostra o resultado daquela pessoa.
+**Participante:** abre o link recebido, toca em **Ver quem eu tirei** e vê o amigo secreto, a lista de presentes dele (ou o aviso de que ainda não está disponível) e os dados do encontro. O link tem um identificador aleatório de 128 bits e só mostra o resultado daquela pessoa.
 
 ## Como é feito
 
@@ -41,7 +42,7 @@ Os testes das regras do banco exigem o emulador do Firebase, que precisa de **Ja
 npx firebase emulators:exec --project demo-amigo-secreto --only firestore,auth "npx vitest run"
 ```
 
-Para criar a conta do organizador, rode `npx tsx scripts/criar-organizador.ts` (a senha é pedida sem aparecer na tela). Para guardar uma cópia dos dados do banco, rode `npx tsx scripts/backup.ts`: ele só lê, pede o e-mail e a senha do organizador (a senha sem aparecer na tela) e grava um arquivo JSON por coleção em `backups/`, pasta ignorada pelo git. Os arquivos têm os nomes, os telefones e os links da família, então guarde-os fora do repositório e do GitHub. A configuração web do Firebase fica em `site/src/environments/environment.ts`; ela é pública por natureza.
+As regras do banco (`firestore.rules`) são publicadas à parte do site, antes dele, com `npx firebase deploy --only firestore:rules --project amigo-secreto-buscape` (exige o login do organizador no Firebase); para voltar atrás, publique de novo as regras anteriores do git. Para criar a conta do organizador, rode `npx tsx scripts/criar-organizador.ts` (a senha é pedida sem aparecer na tela). Para guardar uma cópia dos dados do banco, rode `npx tsx scripts/backup.ts`: ele só lê, pede o e-mail e a senha do organizador (a senha sem aparecer na tela) e grava um arquivo JSON por coleção em `backups/`, pasta ignorada pelo git. Os arquivos têm os nomes, os telefones e os links da família, então guarde-os fora do repositório e do GitHub. A configuração web do Firebase fica em `site/src/environments/environment.ts`; ela é pública por natureza.
 
 ## Estrutura
 

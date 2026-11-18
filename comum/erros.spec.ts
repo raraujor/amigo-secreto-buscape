@@ -20,3 +20,8 @@ it("US4 FR-004 conferência que não pôde ser feita tem mensagem própria e err
 it("US8 FR-010 mensagem de erro de sorteio que mudou pede para recarregar a página", () => {
   expect(mensagemDeErro("SORTEIO_MUDOU")).toBe("O sorteio mudou. Recarregue a página e tente de novo.");
 });
+
+it("US1 FR-001 as mensagens do limite da lista dizem 20 itens e a linha de 200 caracteres", () => {
+  expect(mensagemDeErro("LISTA_ITENS_DEMAIS")).toBe("O limite é de 20 itens por pessoa.");
+  expect(mensagemDeErro("LISTA_ITEM_LONGO", "sortear", 3)).toBe("A linha 3 passa de 200 caracteres.");
+});
