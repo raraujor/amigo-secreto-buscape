@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Regras de acesso do sorteio (D-001, NFR-006, NFR-007).
+// - O organizador (uma conta só, pelo UID) lê e grava tudo.
+// - Um visitante com o link lê só aquele link (get pelo token, nunca list) e os dados do encontro.
+// - O visitante só pode gravar a abertura do próprio link, uma vez, com a hora do servidor.
+// - Qualquer outra conta logada é tratada como visitante.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // UID da conta do organizador (não é segredo). Troque pelo UID impresso por
+    // scripts/criar-organizador.ts antes de publicar as regras.
+    function ORGANIZADOR_UID() {
+      return 'organizador-de-teste';
+    }
+
+    function organizador() {
+      return request.auth != null && request.auth.uid == ORGANIZADOR_UID();
+    }
+
+    match /links/{token} {
+      allow get: if true;
+      allow list, create, delete: if organizador();
+      allow update: if organizador()
+        || (resource.data.abertoEm == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['abertoEm'])
+            && request.resource.data.abertoEm == request.time);
+    }
+
+    match /config/encontro {
+      allow get: if true;
+      allow list, write: if organizador();
+    }
+
+    match /{documento=**} {
+      allow read, write: if organizador();
+    }
+  }
+}

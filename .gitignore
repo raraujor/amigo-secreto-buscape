@@ -1,0 +1,26 @@
+# Dependências e builds
+node_modules/
+dist/
+site/.angular/
+coverage/
+
+# Dados reais da família nunca entram no repositório (NFR-006).
+# Só as fixtures inventadas dos testes são versionadas.
+*.csv
+!testes/fixtures/*.csv
+
+# Segredos e credenciais
+.env
+.env.*
+*.key
+*.pem
+*-service-account*.json
+conta-de-servico*.json
+
+# Artefatos do Firebase e do emulador
+.firebase/
+*-debug.log
+firebase-export-*/
+
+# Relatório do gate
+.aidlc-junit.xml

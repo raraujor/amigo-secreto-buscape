@@ -1,0 +1,19 @@
+{
+  "name": "amigo-secreto-buscape",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "site"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:tudo": "firebase emulators:exec --project demo-amigo-secreto --only firestore,auth \"vitest run\"",
+    "gate": "firebase emulators:exec --project demo-amigo-secreto --only firestore,auth \"vitest run --reporter=default --reporter=junit --outputFile.junit=.aidlc-junit.xml\""
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.36.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.2",
+    "vitest": "4.1.12"
+  }
+}
