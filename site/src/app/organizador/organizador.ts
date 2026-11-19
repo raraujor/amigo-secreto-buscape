@@ -132,28 +132,26 @@ interface LinkDaTela {
             Para refazer, use Recomeçar do zero.</p>
         }
         <p class="erro">{{ erro() }}</p>
-        <table>
+        <ul class="participantes">
           @for (l of links(); track l.url) {
-            <tr>
-              <td>
-                <strong>{{ l.nome }}</strong>
-                <div class="estado">
-                  <span [class.visto]="l.status === 'enviada'" [class.aviso]="l.status === 'falha'">{{ l.rotulo }}</span>
-                  <span [class.visto]="l.vistoEm"> · {{ l.vistoEm ? "já viu em " + l.vistoEm : "ainda não viu" }}</span>
-                </div>
-              </td>
-              <td class="acoes">
+            <li>
+              <strong>{{ l.nome }}</strong>
+              <div class="estado">
+                <span [class.visto]="l.status === 'enviada'" [class.aviso]="l.status === 'falha'">{{ l.rotulo }}</span>
+                <span [class.visto]="l.vistoEm"> · {{ l.vistoEm ? "já viu em " + l.vistoEm : "ainda não viu" }}</span>
+              </div>
+              <div class="acoes-link">
                 <a class="whats" [href]="l.whatsapp" target="_blank" rel="noopener" (click)="enviarPeloWhatsApp(l)">
                   💬 {{ l.status === "enviada" ? "Enviar de novo" : "Enviar pelo WhatsApp" }}</a>
+                <button type="button" class="discreto" (click)="copiar(l.url)">
+                  {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button>
                 @if (l.status === "enviada") {
                   <button type="button" class="discreto" (click)="desfazer(l)">Desfazer</button>
                 }
-                <button type="button" class="discreto" (click)="copiar(l.url)">
-                  {{ copiado() === l.url ? "Copiado ✓" : "Copiar link" }}</button>
-              </td>
-            </tr>
+              </div>
+            </li>
           }
-        </table>
+        </ul>
       </section>
 
       <section class="cartao">
