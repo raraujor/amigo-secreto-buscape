@@ -69,7 +69,11 @@ interface LinkDaTela {
     <section class="cartao">
       <h2>1. Importar a lista</h2>
       <p class="dica">Planilha CSV com as colunas nome, whatsapp e responsavel (até 80 pessoas).</p>
-      <input type="file" accept=".csv,text/csv" (change)="importar($event)" />
+      <div class="arquivo">
+        <label class="botao-arquivo">Escolher planilha
+          <input type="file" accept=".csv,text/csv" (change)="importar($event)" /></label>
+        <span class="nome-arquivo">{{ nomeArquivo() || "Nenhum arquivo escolhido" }}</span>
+      </div>
       @if (errosPlanilha().length) {
         <p class="erro">A planilha não foi importada. Corrija e envie de novo:</p>
         <ul class="erro">@for (e of errosPlanilha(); track e) { <li>{{ e }}</li> }</ul>
@@ -193,6 +197,7 @@ export class Organizador implements OnInit {
   encontro: Encontro = { data: "24/12/2026", local: "Fazenda da Titia", valor: "R$ 50,00" };
   readonly encontroSalvo = signal(false);
   readonly erro = signal("");
+  readonly nomeArquivo = signal("");
   readonly errosPlanilha = signal<string[]>([]);
   readonly avisosPlanilha = signal<string[]>([]);
   readonly copiado = signal("");
@@ -278,6 +283,7 @@ export class Organizador implements OnInit {
     this.errosPlanilha.set([]);
     this.avisosPlanilha.set([]);
     const arquivo = (evento.target as HTMLInputElement).files?.[0];
+    this.nomeArquivo.set(arquivo?.name ?? "");
     if (!arquivo) return;
     try {
       const pronto = prepararImportacao(new Uint8Array(await arquivo.arrayBuffer()));

@@ -19,10 +19,12 @@ button.discreto { background: transparent; color: inherit; border: 1px solid cur
 .cartao button.discreto { color: #14532d; }
 input { font: inherit; padding: .55rem; width: 100%; box-sizing: border-box; margin: .25rem 0 .75rem;
   border: 1px solid #d6cdb5; border-radius: .5rem; background: #fff; }
-input[type="file"] { padding: .5rem; color: #6b7280; cursor: pointer; }
-input[type="file"]::file-selector-button { font: inherit; padding: .5rem 1rem; margin-right: .75rem; cursor: pointer;
-  border: 1px solid #14532d; border-radius: .6rem; background: transparent; color: #14532d; font-weight: 600; }
-input[type="file"]::file-selector-button:hover { background: #14532d; color: #fff; }
+.arquivo { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; margin: .25rem 0 .75rem; }
+.botao-arquivo { position: relative; display: inline-block; padding: .5rem 1rem; cursor: pointer; font-weight: 600;
+  border: 1px solid #14532d; border-radius: .6rem; color: #14532d; }
+.botao-arquivo:hover, .botao-arquivo:focus-within { background: #14532d; color: #fff; }
+.botao-arquivo input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.nome-arquivo { color: #6b7280; font-size: .9rem; overflow-wrap: anywhere; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #eee6d0; }
 
