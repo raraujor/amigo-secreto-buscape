@@ -40,3 +40,16 @@ button.perigo-botao { background: #7f1d1d; }
 .estado { font-size: .85rem; color: #6b7280; margin-top: .15rem; }
 td.acoes { text-align: right; white-space: normal; }
 td.acoes > * { margin: 0 0 .35rem .35rem; }
+
+ul.participantes { list-style: none; margin: 0; padding: 0; }
+ul.participantes > li { border-bottom: 1px solid #eee6d0; padding: .7rem 0; }
+.pessoa { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; }
+.pessoa .quem { flex: 1 1 11rem; min-width: 0; display: flex; flex-direction: column; }
+.pessoa .contato { color: #6b7280; font-size: .85rem; overflow-wrap: anywhere; }
+.selo { font-size: .8rem; padding: .15rem .6rem; border-radius: 999px; background: #eee6d0; color: #6b7280; white-space: nowrap; }
+.selo.com { background: #dcfce7; color: #14532d; font-weight: 600; }
+.edicao { margin-top: .7rem; }
+.edicao label { display: block; font-weight: 600; margin-bottom: .35rem; }
+.edicao textarea { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: .6rem;
+  border: 1px solid #d6cfb8; border-radius: .6rem; resize: vertical; }
+.edicao .botoes { display: flex; gap: .5rem; flex-wrap: wrap; }

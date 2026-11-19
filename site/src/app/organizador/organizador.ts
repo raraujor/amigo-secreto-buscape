@@ -83,33 +83,35 @@ interface LinkDaTela {
 
     <section class="cartao">
       <h2>2. Participantes ({{ participantes().length }})</h2>
-      <table>
-        <tr><th>Nome</th><th>WhatsApp</th><th>Responsável</th><th>Lista de presentes</th></tr>
+      <ul class="participantes">
         @for (linha of linhasDaTabela(); track linha.p.id) {
-          <tr>
-            <td>{{ linha.p.nome }}</td><td>{{ linha.p.whatsapp }}</td><td>{{ linha.p.responsavel }}</td>
-            <td>
-              <span [class.visto]="linha.comLista">{{ linha.comLista ? "com lista" : "sem lista" }}</span>
+          <li>
+            <div class="pessoa">
+              <div class="quem">
+                <strong>{{ linha.p.nome }}</strong>
+                <span class="contato">{{ linha.p.whatsapp }}@if (linha.p.responsavel) { · responsável: {{ linha.p.responsavel }} }</span>
+              </div>
+              <span class="selo" [class.com]="linha.comLista">{{ linha.comLista ? "com lista" : "sem lista" }}</span>
               <button type="button" class="discreto" (click)="abrirLista(linha.p)">
                 {{ editando() === linha.p.id ? "Fechar" : "Lista de presentes" }}</button>
-            </td>
-          </tr>
-          @if (editando() === linha.p.id) {
-            <tr>
-              <td colspan="4">
-                <label>Lista de presentes de {{ linha.p.nome }}
-                  <textarea name="lista" rows="6" [(ngModel)]="textoEdicao"
-                    placeholder="Um item por linha"></textarea></label>
+            </div>
+            @if (editando() === linha.p.id) {
+              <div class="edicao">
+                <label for="lista-{{ linha.p.id }}">Lista de presentes de {{ linha.p.nome }}</label>
+                <textarea id="lista-{{ linha.p.id }}" name="lista" rows="6" [(ngModel)]="textoEdicao"
+                  placeholder="Um item por linha"></textarea>
                 <p class="dica">Até 20 itens, de até 200 caracteres cada. Texto vazio apaga a lista.
                   Aparece no link de quem tirou {{ linha.p.nome }}, quando a pessoa toca em Ver quem eu tirei.</p>
-                <button type="button" (click)="salvarLista(linha.p)">Salvar lista</button>
-                <button type="button" class="discreto" (click)="fecharLista()">Cancelar</button>
+                <div class="botoes">
+                  <button type="button" (click)="salvarLista(linha.p)">Salvar lista</button>
+                  <button type="button" class="discreto" (click)="fecharLista()">Cancelar</button>
+                </div>
                 <p class="erro">{{ erroLista() }}</p>
-              </td>
-            </tr>
-          }
+              </div>
+            }
+          </li>
         }
-      </table>
+      </ul>
     </section>
 
     <section class="cartao">
