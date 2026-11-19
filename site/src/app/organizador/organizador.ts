@@ -157,9 +157,11 @@ interface LinkDaTela {
       <section class="cartao">
         <h2>Resultado completo</h2>
         <p class="dica">Só você vê. Some de novo ao recarregar a página.</p>
-        <button type="button" (click)="alternarResultado()">
-          {{ resultado() ? "Esconder resultado" : "Mostrar resultado (só você vê)" }}</button>
-        <button type="button" class="discreto" (click)="copiarResultado()">Copiar resultado</button>
+        <div class="acoes-link">
+          <button type="button" (click)="alternarResultado()">
+            {{ resultado() ? "Esconder resultado" : "Mostrar resultado" }}</button>
+          <button type="button" class="discreto" (click)="copiarResultado()">Copiar resultado</button>
+        </div>
         @if (mensagemCopia()) { <p class="visto-msg">{{ mensagemCopia() }}</p> }
         @if (resultado(); as pares) {
           <table>
