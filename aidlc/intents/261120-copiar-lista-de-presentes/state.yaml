@@ -1,0 +1,14 @@
+# Workflow state of one intent. Written by the CLI; agents read it, never edit it.
+version: 1
+intent: 261120-copiar-lista-de-presentes
+scope: express
+created: 2026-11-20T15:57:50.853Z
+stages:
+  "2.1":
+    status: skipped
+    skip_reason: greenfield project
+  "2.3":
+    status: approved
+    started: 2026-11-20T16:12:17.295Z
+    approved_by: Rodrigo
+    approved_at: 2026-11-20T16:13:56.307Z

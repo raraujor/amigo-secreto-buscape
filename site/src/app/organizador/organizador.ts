@@ -5,7 +5,7 @@ import { signOut } from "firebase/auth";
 import { confirmouRecomecar } from "../../../../comum/confirmacao";
 import { formatarDataHora } from "../../../../comum/data";
 import { mensagemDeErro } from "../../../../comum/erros";
-import { chaveDaLista, resumoDeListas, textoDaLista } from "../../../../comum/lista";
+import { chaveDaLista, resumoDeListas, textoDaLista, textoDeTodasAsListas } from "../../../../comum/lista";
 import { linkWhatsapp, resumoDeEnvio, rotuloDoStatus, textoDaMensagem } from "../../../../comum/mensagens";
 import { prepararImportacao } from "../../../../comum/planilha";
 import { resultadoEmTexto } from "../../../../comum/resultado";
@@ -66,8 +66,9 @@ interface LinkDaTela {
       @if (encontroSalvo()) { <p class="visto-msg">✓ Salvo. Já aparece nos links.</p> }
     </section>
 
+    @if (!sorteado()) {
     <section class="cartao">
-      <h2>1. Importar a lista</h2>
+      <h2>Importar a lista</h2>
       <p class="dica">Planilha CSV com as colunas nome, whatsapp e responsavel (até 80 pessoas).</p>
       <div class="arquivo">
         <label class="botao-arquivo">Escolher planilha
@@ -84,9 +85,14 @@ interface LinkDaTela {
       }
       <p class="erro">{{ erro() }}</p>
     </section>
+    }
 
     <section class="cartao">
-      <h2>2. Participantes ({{ participantes().length }})</h2>
+      <h2>Participantes ({{ participantes().length }})</h2>
+      <div class="acoes-link">
+        <button type="button" class="discreto" (click)="copiarListas()" [disabled]="!temListas()">Copiar todas as listas</button>
+      </div>
+      @if (mensagemCopiaListas()) { <p class="visto-msg">{{ mensagemCopiaListas() }}</p> }
       <ul class="participantes">
         @for (linha of linhasDaTabela(); track linha.p.id) {
           <li>
@@ -118,10 +124,12 @@ interface LinkDaTela {
       </ul>
     </section>
 
+    @if (!sorteado()) {
     <section class="cartao">
-      <h2>3. Sortear</h2>
+      <h2>Sortear</h2>
       <button type="button" (click)="sortear()" [disabled]="participantes().length === 0">🎁 Sortear</button>
     </section>
+    }
 
     @if (links().length) {
       <section class="cartao">
@@ -207,6 +215,10 @@ export class Organizador implements OnInit {
   readonly mensagemCopia = signal("");
   /** As listas de presentes guardadas: chave do nome → itens. */
   readonly listas = signal(new Map<string, string[]>());
+  /** Sorteio realizado: há links gravados. Importar e sortear só voltam depois de recomeçar do zero. */
+  readonly sorteado = computed(() => this.links().length > 0);
+  readonly temListas = computed(() => textoDeTodasAsListas(this.participantes(), this.listas()) !== "");
+  readonly mensagemCopiaListas = signal("");
   readonly linhasDaTabela = computed(() => {
     const resumo = resumoDeListas(this.participantes(), new Set(this.listas().keys()));
     return this.participantes().map((p, i) => ({ p, comLista: resumo[i].comLista }));
@@ -341,6 +353,18 @@ export class Organizador implements OnInit {
       const pares = this.resultado() ?? (await lerResultado(db));
       await navigator.clipboard.writeText(resultadoEmTexto(pares));
       this.mensagemCopia.set(`✓ Resultado copiado (${pares.length} pares). Cole numa planilha para conferir.`);
+    } catch (e) {
+      this.erro.set(mensagemDeErro((e as Error).message));
+    }
+  }
+
+  /** Copia as listas salvas de todo mundo, prontas para colar no WhatsApp. Só lê o que a tela já carregou. */
+  async copiarListas(): Promise<void> {
+    this.erro.set("");
+    this.mensagemCopiaListas.set("");
+    try {
+      await navigator.clipboard.writeText(textoDeTodasAsListas(this.participantes(), this.listas()));
+      this.mensagemCopiaListas.set("Copiado ✓ Cole no WhatsApp.");
     } catch (e) {
       this.erro.set(mensagemDeErro((e as Error).message));
     }

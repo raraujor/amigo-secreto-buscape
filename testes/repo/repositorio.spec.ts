@@ -210,3 +210,52 @@ it("US5 NFR-002 verificação manual da lista de presentes registrada com todas 
   expect(marcas.every((m) => m === "- [x]")).toBe(true);
   expect(texto).not.toMatch(/https?:\/\//);
 });
+
+// ---- Copiar todas as listas e esconder importar e sortear (intenção 261120) ----
+
+it("US1 FR-001 a tela tem um só botão Copiar todas as listas, sem botão por pessoa, e copia as listas salvas", () => {
+  const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
+  expect(tela.match(/Copiar todas as listas/g) ?? []).toHaveLength(1);
+  expect(tela).not.toMatch(/Copiar lista[^s]/);
+  const copiar = corpoDoMetodo(tela, "copiarListas");
+  expect(copiar).toContain("textoDeTodasAsListas(");
+  expect(copiar).toContain("this.listas()");
+  expect(copiar).toContain("navigator.clipboard.writeText(");
+  expect(copiar).not.toContain("textoEdicao");
+  expect(tela).toMatch(/Copiar todas as listas[\s\S]{0,40}<\/button>/);
+  expect(tela).toContain("[disabled]=\"!temListas()\"");
+});
+
+it("US1 FR-002 a tela mostra Copiado e o erro da área de transferência", () => {
+  const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
+  const copiar = corpoDoMetodo(tela, "copiarListas");
+  expect(copiar).toContain("Copiado ✓");
+  expect(copiar).toContain("mensagemDeErro(");
+});
+
+it("US1 NFR-001 copiar as listas não grava nada no banco", () => {
+  const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
+  const copiar = corpoDoMetodo(tela, "copiarListas");
+  expect(copiar).not.toMatch(/gravar|importar|apagar|recomecar|lerListas|setDoc|writeBatch/);
+});
+
+it("US2 FR-003 importar e sortear só aparecem sem sorteio e voltam ao recomeçar", () => {
+  const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
+  // Cada seção fica dentro de um bloco que depende de não haver links do sorteio.
+  const semEspacos = tela.replace(/\s+/g, "");
+  expect(semEspacos).toContain('@if(!sorteado()){<sectionclass="cartao"><h2>Importaralista</h2>');
+  expect(semEspacos).toContain('@if(!sorteado()){<sectionclass="cartao"><h2>Sortear</h2>');
+  expect(semEspacos).toContain("sorteado=computed(()=>this.links().length>0)");
+  // Recomeçar zera os links, e a tela os relê: o bloco volta sozinho.
+  expect(corpoDoMetodo(tela, "recomecarTudo")).toContain("carregarLinks(");
+  // Depois de sortear a tela relê os links, e o bloco some sem recarregar.
+  expect(corpoDoMetodo(tela, "sortear")).toContain("carregarLinks(");
+});
+
+it("US1 NFR-002 verificação manual da cópia das listas registrada com todas as marcas ok e sem nomes", () => {
+  const texto = readFileSync("testes/manual/copiar-lista-261120.md", "utf8");
+  const marcas = texto.match(/^- \[[ x]\]/gm) ?? [];
+  expect(marcas.length).toBeGreaterThan(0);
+  expect(marcas.every((m) => m === "- [x]")).toBe(true);
+  expect(texto).not.toMatch(/https?:\/\//);
+});

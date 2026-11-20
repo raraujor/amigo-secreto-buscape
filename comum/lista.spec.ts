@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { chaveDaLista, lerLista, resumoDeListas, textoDaLista } from "./lista";
+import { chaveDaLista, lerLista, resumoDeListas, textoDaLista, textoDeTodasAsListas } from "./lista";
 
 const linha = (n: number, caractere = "a") => caractere.repeat(n);
 
@@ -92,4 +92,55 @@ it("US3 FR-003 lista de nome fora da planilha não entra no indicador", () => {
   const resumo = resumoDeListas(participantes, listas);
   expect(resumo).toHaveLength(36);
   expect(resumo.filter((p) => p.comLista).map((p) => p.nome)).toEqual(["Pessoa 1"]);
+});
+
+// ---- Copiar todas as listas (intenção 261120): texto para o WhatsApp ----
+
+const listasSalvas = (pares: [string, string[]][]) => new Map(pares.map(([nome, itens]) => [chaveDaLista(nome), itens]));
+
+it("US1 FR-001 uma lista vira título e itens numerados", () => {
+  const texto = textoDeTodasAsListas(
+    [{ nome: "Ana" }],
+    listasSalvas([["Ana", ["Camisa tamanho M", "Livro da coleção Clássicos"]]]),
+  );
+  expect(texto).toBe("Lista de presentes de Ana:\n1. Camisa tamanho M\n2. Livro da coleção Clássicos");
+});
+
+it("US1 FR-001 só quem tem lista entra, na ordem da planilha, separado por linha em branco", () => {
+  const texto = textoDeTodasAsListas(
+    [{ nome: "Carla" }, { nome: "Bruno" }, { nome: "Ana" }],
+    listasSalvas([
+      ["Ana", ["Camisa"]],
+      ["Carla", ["Livro", "Meia"]],
+    ]),
+  );
+  expect(texto).toBe("Lista de presentes de Carla:\n1. Livro\n2. Meia\n\nLista de presentes de Ana:\n1. Camisa");
+  expect(texto).not.toContain("Bruno");
+});
+
+it("US1 FR-001 nome com outra caixa ou espaços extras acha a mesma lista", () => {
+  const texto = textoDeTodasAsListas([{ nome: "Ana  Maria" }], listasSalvas([["ana maria", ["Camisa"]]]));
+  expect(texto).toBe("Lista de presentes de Ana  Maria:\n1. Camisa");
+});
+
+it("US1 FR-001 lista de nome fora da planilha e lista vazia ficam de fora", () => {
+  const texto = textoDeTodasAsListas(
+    [{ nome: "Ana" }, { nome: "Bruno" }],
+    listasSalvas([
+      ["Alguém que saiu", ["Camisa"]],
+      ["Bruno", []],
+    ]),
+  );
+  expect(texto).toBe("");
+});
+
+it("US1 FR-001 sem nenhuma lista o texto é vazio, e o botão fica desabilitado", () => {
+  expect(textoDeTodasAsListas([{ nome: "Ana" }], new Map())).toBe("");
+});
+
+it("US1 NFR-001 copiar não altera as listas lidas", () => {
+  const listas = listasSalvas([["Ana", ["Camisa"]]]);
+  const antes = JSON.stringify([...listas]);
+  textoDeTodasAsListas([{ nome: "Ana" }], listas);
+  expect(JSON.stringify([...listas])).toBe(antes);
 });
