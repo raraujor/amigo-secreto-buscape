@@ -90,7 +90,7 @@ interface LinkDaTela {
     <section class="cartao">
       <h2>Participantes ({{ participantes().length }})</h2>
       <div class="acoes-link">
-        <button type="button" class="discreto" (click)="copiarListas()" [disabled]="!temListas()">Copiar todas as listas</button>
+        <button type="button" class="discreto" (click)="copiarListas()" [disabled]="!temListas()">Exportar lista de presentes</button>
       </div>
       @if (mensagemCopiaListas()) { <p class="visto-msg">{{ mensagemCopiaListas() }}</p> }
       <ul class="participantes">

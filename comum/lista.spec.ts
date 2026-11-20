@@ -94,7 +94,7 @@ it("US3 FR-003 lista de nome fora da planilha não entra no indicador", () => {
   expect(resumo.filter((p) => p.comLista).map((p) => p.nome)).toEqual(["Pessoa 1"]);
 });
 
-// ---- Copiar todas as listas (intenção 261120): texto para o WhatsApp ----
+// ---- Exportar lista de presentes (intenção 261120): texto para o WhatsApp ----
 
 const listasSalvas = (pares: [string, string[]][]) => new Map(pares.map(([nome, itens]) => [chaveDaLista(nome), itens]));
 

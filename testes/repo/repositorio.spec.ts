@@ -211,18 +211,18 @@ it("US5 NFR-002 verificação manual da lista de presentes registrada com todas 
   expect(texto).not.toMatch(/https?:\/\//);
 });
 
-// ---- Copiar todas as listas e esconder importar e sortear (intenção 261120) ----
+// ---- Exportar lista de presentes e esconder importar e sortear (intenção 261120) ----
 
-it("US1 FR-001 a tela tem um só botão Copiar todas as listas, sem botão por pessoa, e copia as listas salvas", () => {
+it("US1 FR-001 a tela tem um só botão Exportar lista de presentes, sem botão por pessoa, e copia as listas salvas", () => {
   const tela = readFileSync("site/src/app/organizador/organizador.ts", "utf8");
-  expect(tela.match(/Copiar todas as listas/g) ?? []).toHaveLength(1);
+  expect(tela.match(/Exportar lista de presentes/g) ?? []).toHaveLength(1);
   expect(tela).not.toMatch(/Copiar lista[^s]/);
   const copiar = corpoDoMetodo(tela, "copiarListas");
   expect(copiar).toContain("textoDeTodasAsListas(");
   expect(copiar).toContain("this.listas()");
   expect(copiar).toContain("navigator.clipboard.writeText(");
   expect(copiar).not.toContain("textoEdicao");
-  expect(tela).toMatch(/Copiar todas as listas[\s\S]{0,40}<\/button>/);
+  expect(tela).toMatch(/Exportar lista de presentes[\s\S]{0,40}<\/button>/);
   expect(tela).toContain("[disabled]=\"!temListas()\"");
 });
 

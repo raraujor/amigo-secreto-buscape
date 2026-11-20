@@ -8,7 +8,5 @@ stages:
     status: skipped
     skip_reason: greenfield project
   "2.3":
-    status: approved
-    started: 2026-11-20T16:12:17.295Z
-    approved_by: Rodrigo
-    approved_at: 2026-11-20T16:13:56.307Z
+    status: awaiting-approval
+    started: 2026-11-20T16:18:58.807Z
