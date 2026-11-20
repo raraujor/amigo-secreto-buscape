@@ -103,7 +103,7 @@ it("US1 FR-001 uma lista vira título único, nome e itens numerados", () => {
     [{ nome: "Ana" }],
     listasSalvas([["Ana", ["Camisa tamanho M", "Livro da coleção Clássicos"]]]),
   );
-  expect(texto).toBe("Lista de presentes de Ana:\n1. Camisa tamanho M\n2. Livro da coleção Clássicos");
+  expect(texto).toBe("Lista de presentes\n\nAna:\n1. Camisa tamanho M\n2. Livro da coleção Clássicos");
 });
 
 it("US1 FR-001 só quem tem lista entra, na ordem da planilha, separado por linha em branco", () => {
@@ -114,13 +114,13 @@ it("US1 FR-001 só quem tem lista entra, na ordem da planilha, separado por linh
       ["Carla", ["Livro", "Meia"]],
     ]),
   );
-  expect(texto).toBe("Lista de presentes de Carla:\n1. Livro\n2. Meia\n\nLista de presentes de Ana:\n1. Camisa");
+  expect(texto).toBe("Lista de presentes\n\nCarla:\n1. Livro\n2. Meia\n\nAna:\n1. Camisa");
   expect(texto).not.toContain("Bruno");
 });
 
 it("US1 FR-001 nome com outra caixa ou espaços extras acha a mesma lista", () => {
   const texto = textoDeTodasAsListas([{ nome: "Ana  Maria" }], listasSalvas([["ana maria", ["Camisa"]]]));
-  expect(texto).toBe("Lista de presentes de Ana  Maria:\n1. Camisa");
+  expect(texto).toBe("Lista de presentes\n\nAna  Maria:\n1. Camisa");
 });
 
 it("US1 FR-001 lista de nome fora da planilha e lista vazia ficam de fora", () => {
