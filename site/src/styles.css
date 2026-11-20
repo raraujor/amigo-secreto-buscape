@@ -45,10 +45,8 @@ ul.erro, ul.aviso { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
 button.perigo-botao { background: #7f1d1d; }
 .estado { font-size: .85rem; color: #6b7280; margin: .15rem 0 .6rem; }
 .acoes-link { display: flex; flex-wrap: wrap; gap: .5rem; }
-.acoes-link > * { flex: 1 1 auto; text-align: center; margin: 0; box-sizing: border-box; font-size: .9rem; padding: .55rem .9rem; }
+.acoes-link > a, .acoes-link > button { flex: 1 1 auto; text-align: center; margin: 0; box-sizing: border-box; font-size: .9rem; padding: .55rem .9rem; }
 a.whats { border-radius: .6rem; font-weight: 600; }
-td.acoes { text-align: right; white-space: normal; }
-td.acoes > * { margin: 0 0 .35rem .35rem; }
 
 ul.participantes { list-style: none; margin: 0; padding: 0; }
 ul.participantes > li { border-bottom: 1px solid #eee6d0; padding: .7rem 0; }

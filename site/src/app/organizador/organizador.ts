@@ -226,7 +226,8 @@ export class Organizador implements OnInit {
     this.participantes.set(await lerParticipantes(db));
     // Refaz os presentes que os links leem, caso algum tenha ficado fora de sincronia; falha não impede a tela.
     await sincronizarPresentes(db).catch(() => undefined);
-    this.listas.set(await lerListas(db));
+    // A falha ao ler as listas não derruba o resto da tela: os indicadores ficam "sem lista" até recarregar.
+    this.listas.set(await lerListas(db).catch(() => new Map()));
     await this.carregarLinks();
     const salvo = await lerEncontro(db);
     if (salvo) {
@@ -285,6 +286,8 @@ export class Organizador implements OnInit {
     const arquivo = (evento.target as HTMLInputElement).files?.[0];
     this.nomeArquivo.set(arquivo?.name ?? "");
     if (!arquivo) return;
+    // Permite escolher o mesmo arquivo de novo depois de corrigir a planilha.
+    (evento.target as HTMLInputElement).value = "";
     try {
       const pronto = prepararImportacao(new Uint8Array(await arquivo.arrayBuffer()));
       if (pronto.erros.length) {
@@ -367,7 +370,8 @@ export class Organizador implements OnInit {
     this.erroLista.set("");
     try {
       await gravarLista(db, p.nome, this.textoEdicao);
-      this.listas.set(await lerListas(db));
+      // Já gravou: se reler as listas falhar, a gravação não vira erro de salvar.
+      this.listas.set(await lerListas(db).then((m) => m, () => this.listas()));
       this.editando.set(null);
     } catch (e) {
       const erro = e as Error & { linha?: number };
@@ -386,6 +390,7 @@ export class Organizador implements OnInit {
     try {
       await recomecar(db);
       this.confirmacao = "";
+      this.nomeArquivo.set("");
       this.resultado.set(null);
       await this.carregarLinks();
       this.mensagemRecomeco.set("Tudo recomeçado. Você pode importar e sortear de novo.");

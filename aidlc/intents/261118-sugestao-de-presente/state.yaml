@@ -32,11 +32,10 @@ units:
     stages:
       "3.1":
         status: approved
-        started: 2026-11-18T22:14:58.073Z
-        plan_hash: 73223e1ba37111417d0b5b1e43b1d7b54bdb274d1600502e109d3e3a06f1bbf4
+        started: 2026-11-20T15:09:03.498Z
+        plan_hash: 2daee77b8b771dee21999c1992866fdd0ec1ff207132cb50ea84ce3d5d23b60f
         approved_by: Rodrigo
-        approved_at: 2026-11-18T22:26:02.212Z
+        approved_at: 2026-11-20T15:12:37.556Z
       "3.2":
-        status: in-progress
+        status: pending
         commit_base: a5539538941001e57b1de94561c230d7e45de1e5
-        started: 2026-11-18T22:35:49.660Z
