@@ -11,8 +11,8 @@ O organizador escreve as listas de presentes e precisa mandá-las no WhatsApp pa
 ### Copiar as listas (organizador)
 
 - **FR-001**: O sistema deve oferecer um único botão "Exportar lista de presentes" que copia para a área de transferência, num texto só, as listas salvas de todas as pessoas que têm lista, na ordem da planilha, separadas por uma linha em branco. Não há botão de copiar por pessoa. [desc] [Q1] [Q3]
-  - Dado Ana com a lista salva "Camisa tamanho M" e "Livro da coleção Clássicos", quando o organizador toca em "Exportar lista de presentes", então o texto copiado traz "Lista de presentes de Ana:", uma quebra de linha, "1. Camisa tamanho M", outra quebra de linha e "2. Livro da coleção Clássicos". [Q2] [Q3]
-  - Dado Ana e Carla com lista e Bruno sem lista, quando o organizador toca no botão, então o texto traz a lista de Ana, uma linha em branco e a lista de Carla, e não traz Bruno. [Q1] [Q2]
+  - Dado Ana com a lista salva "Camisa tamanho M" e "Livro da coleção Clássicos", quando o organizador toca em "Exportar lista de presentes", então o texto copiado traz o título "Lista de presentes" uma única vez, uma linha em branco, "Ana:", uma quebra de linha, "1. Camisa tamanho M", outra quebra de linha e "2. Livro da coleção Clássicos". [Q2] [Q3] [desc]
+  - Dado Ana e Carla com lista e Bruno sem lista, quando o organizador toca no botão, então o texto traz o título uma única vez, a lista de Ana, uma linha em branco e a lista de Carla, e não traz Bruno. [Q1] [Q2]
   - Dado a caixa de edição de uma pessoa aberta com texto ainda não salvo, quando o organizador toca no botão, então o que é copiado são as listas salvas, não o texto da caixa. [Q3]
   - Dado nenhuma pessoa com lista, quando o organizador vê o botão, então ele está desabilitado. [assumption]
   - refs: site/src/app/organizador/organizador.ts, comum/lista.ts

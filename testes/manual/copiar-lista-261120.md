@@ -4,7 +4,7 @@ Marque com `[x]` depois de conferir no site publicado, com o celular. Só marcas
 
 - [ ] Na seção Participantes aparece o botão "Exportar lista de presentes", sem botão de copiar em cada pessoa
 - [ ] Tocar em "Exportar lista de presentes" mostra "Copiado ✓ Cole no WhatsApp."
-- [ ] Colar no WhatsApp mostra, para cada pessoa que tem lista, "Lista de presentes de <nome>:" e os itens numerados, com uma linha em branco entre as pessoas
+- [ ] Colar no WhatsApp mostra o título "Lista de presentes" uma vez só e, para cada pessoa que tem lista, "<nome>:" e os itens numerados, com uma linha em branco entre as pessoas
 - [ ] Quem está "sem lista" não aparece no texto colado
 - [ ] Com a caixa de uma lista aberta e texto ainda não salvo, o texto colado traz a lista salva, não o que está digitado
 - [ ] O botão cabe na tela de 360 px sem rolagem horizontal

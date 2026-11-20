@@ -57,7 +57,7 @@ export function resumoDeListas(
 
 /**
  * O texto que o organizador cola no WhatsApp: a lista salva de cada pessoa que tem lista, na ordem dos participantes,
- * com título e itens numerados, separadas por uma linha em branco. Sem nenhuma lista, o texto é vazio.
+ * sob um título único "Lista de presentes", cada uma com o nome e os itens numerados, separadas por uma linha em branco. Sem nenhuma lista, o texto é vazio.
  */
 export function textoDeTodasAsListas(
   participantes: readonly { nome: string }[],
@@ -67,7 +67,7 @@ export function textoDeTodasAsListas(
   for (const { nome } of participantes) {
     const itens = listas.get(chaveDaLista(nome)) ?? [];
     if (itens.length === 0) continue;
-    blocos.push([`Lista de presentes de ${nome}:`, ...itens.map((item, i) => `${i + 1}. ${item}`)].join("\n"));
+    blocos.push([`${nome}:`, ...itens.map((item, i) => `${i + 1}. ${item}`)].join("\n"));
   }
-  return blocos.join("\n\n");
+  return blocos.length === 0 ? "" : ["Lista de presentes", ...blocos].join("\n\n");
 }

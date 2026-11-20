@@ -98,7 +98,7 @@ it("US3 FR-003 lista de nome fora da planilha não entra no indicador", () => {
 
 const listasSalvas = (pares: [string, string[]][]) => new Map(pares.map(([nome, itens]) => [chaveDaLista(nome), itens]));
 
-it("US1 FR-001 uma lista vira título e itens numerados", () => {
+it("US1 FR-001 uma lista vira título único, nome e itens numerados", () => {
   const texto = textoDeTodasAsListas(
     [{ nome: "Ana" }],
     listasSalvas([["Ana", ["Camisa tamanho M", "Livro da coleção Clássicos"]]]),
